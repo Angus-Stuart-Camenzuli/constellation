@@ -1,184 +1,241 @@
-.counter {
-  font-size: 16px;
-  padding: 5px 10px;
-  border-radius: 5px;
-  color: var(--accent);
-  background: var(--accent-bg);
-  border: 2px solid transparent;
-  transition: border-color 0.3s;
-  margin-bottom: 24px;
+.container {
+  width: 100%;
+  height: 100%;
 
-  &:hover {
-    border-color: var(--accent-border);
-  }
-  &:focus-visible {
-    outline: 2px solid var(--accent);
-    outline-offset: 2px;
-  }
-}
-
-.hero {
-  position: relative;
-
-  .base,
-  .framework,
-  .vite {
-    inset-inline: 0;
-    margin: 0 auto;
-  }
-
-  .base {
-    width: 170px;
-    position: relative;
-    z-index: 0;
-  }
-
-  .framework,
-  .vite {
-    position: absolute;
-  }
-
-  .framework {
-    z-index: 1;
-    top: 34px;
-    height: 28px;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(44deg) rotateY(39deg)
-      scale(1.4);
-  }
-
-  .vite {
-    z-index: 0;
-    top: 107px;
-    height: 26px;
-    width: auto;
-    transform: perspective(2000px) rotateZ(300deg) rotateX(40deg) rotateY(39deg)
-      scale(0.8);
-  }
-}
-
-#center {
   display: flex;
   flex-direction: column;
-  gap: 25px;
-  place-content: center;
-  place-items: center;
-  flex-grow: 1;
+  justify-content: center;
+  align-items: center;
 
-  @media (max-width: 1024px) {
-    padding: 32px 20px 24px;
-    gap: 18px;
-  }
-}
-
-#next-steps {
-  display: flex;
-  border-top: 1px solid var(--border);
-  text-align: left;
-
-  & > div {
-    flex: 1 1 0;
-    padding: 32px;
-    @media (max-width: 1024px) {
-      padding: 24px 20px;
-    }
-  }
-
-  .icon {
-    margin-bottom: 16px;
-    width: 22px;
-    height: 22px;
-  }
-
-  @media (max-width: 1024px) {
-    flex-direction: column;
-    text-align: center;
-  }
-}
-
-#docs {
-  border-right: 1px solid var(--border);
-
-  @media (max-width: 1024px) {
-    border-right: none;
-    border-bottom: 1px solid var(--border);
-  }
-}
-
-#next-steps ul {
-  list-style: none;
-  padding: 0;
-  display: flex;
-  gap: 8px;
-  margin: 32px 0 0;
-
-  .logo {
-    height: 18px;
-  }
-
-  a {
-    color: var(--text-h);
-    font-size: 16px;
-    border-radius: 6px;
-    background: var(--social-bg);
-    display: flex;
-    padding: 6px 12px;
-    align-items: center;
-    gap: 8px;
-    text-decoration: none;
-    transition: box-shadow 0.3s;
-
-    &:hover {
-      box-shadow: var(--shadow);
-    }
-    .button-icon {
-      height: 18px;
-      width: 18px;
-    }
-  }
-
-  @media (max-width: 1024px) {
-    margin-top: 20px;
-    flex-wrap: wrap;
-    justify-content: center;
-
-    li {
-      flex: 1 1 calc(50% - 8px);
-    }
-
-    a {
-      width: 100%;
-      justify-content: center;
-      box-sizing: border-box;
-    }
-  }
-}
-
-#spacer {
-  height: 88px;
-  border-top: 1px solid var(--border);
-  @media (max-width: 1024px) {
-    height: 48px;
-  }
-}
-
-.ticks {
   position: relative;
-  width: 100%;
+  overflow: hidden;
+}
 
-  &::before,
-  &::after {
-    content: '';
-    position: absolute;
-    top: -4.5px;
-    border: 5px solid transparent;
-  }
+/* ---------- Starfield ---------- */
 
-  &::before {
-    left: 0;
-    border-left-color: var(--border);
+.starfield {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+}
+
+.star {
+  position: absolute;
+  border-radius: 50%;
+  background: white;
+  opacity: 0;
+  animation: star-in 2s ease forwards, twinkle var(--dur) ease-in-out infinite;
+  animation-delay: var(--delay), calc(var(--delay) + 2s);
+}
+
+@keyframes star-in {
+  to {
+    opacity: var(--max-opacity);
   }
-  &::after {
-    right: 0;
-    border-right-color: var(--border);
+}
+
+@keyframes twinkle {
+  0%,
+  100% {
+    opacity: calc(var(--max-opacity) * 0.4);
+  }
+  50% {
+    opacity: var(--max-opacity);
+  }
+}
+
+/* ---------- Ambient glow ---------- */
+
+.glow-close,
+.glow-ambient {
+  position: absolute;
+  z-index: 0;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.glow-close {
+  width: 450px;
+  height: 120px;
+  background: rgba(100, 150, 255, 0.12);
+  filter: blur(50px);
+  animation: fade-in 1.5s ease forwards 0.3s,
+    breathe 8s ease-in-out infinite 1.8s;
+}
+
+.glow-ambient {
+  width: 800px;
+  height: 300px;
+  background: rgba(60, 100, 200, 0.06);
+  filter: blur(100px);
+  animation: fade-in 2s ease forwards 0.1s,
+    ambient 15s ease-in-out infinite 2.1s;
+}
+
+@keyframes fade-in {
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.4;
+    transform: scale(0.95);
+  }
+  50% {
+    opacity: 0.9;
+    transform: scale(1.05);
+  }
+}
+
+@keyframes ambient {
+  0%,
+  100% {
+    transform: translate(-20px, 0px) scale(1);
+  }
+  50% {
+    transform: translate(20px, 10px) scale(1.1);
+  }
+}
+
+/* ---------- Orbit ring (signature element) ---------- */
+
+.orbit-ring {
+  position: absolute;
+  width: 560px;
+  height: 560px;
+  border-radius: 50%;
+  z-index: 1;
+  opacity: 0;
+  pointer-events: none;
+
+  background: conic-gradient(
+    from 0deg,
+    transparent 0deg,
+    rgba(150, 190, 255, 0.55) 35deg,
+    transparent 95deg,
+    transparent 360deg
+  );
+
+  -webkit-mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 1.5px),
+    #000 calc(100% - 1.5px)
+  );
+  mask: radial-gradient(
+    farthest-side,
+    transparent calc(100% - 1.5px),
+    #000 calc(100% - 1.5px)
+  );
+
+  animation: ring-in 1.4s ease forwards 0.9s,
+    spin 26s linear infinite 2.3s;
+}
+
+@keyframes ring-in {
+  from {
+    opacity: 0;
+    transform: scale(0.9);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+/* ---------- Prompt ---------- */
+
+.prompt-wrapper {
+  position: relative;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 18px;
+
+  opacity: 0;
+  transform: translateY(12px);
+  animation: prompt-in 1s ease forwards 1.5s;
+}
+
+@keyframes prompt-in {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.prompt {
+  width: 450px;
+  padding: 16px 24px;
+
+  background: rgba(0, 0, 0, 0.45);
+  color: white;
+
+  border: 1px solid rgba(255, 255, 255, 0.12);
+  border-radius: 30px;
+
+  font-size: 18px;
+  font-weight: 400;
+  text-align: center;
+  font-family: "Space Grotesk", sans-serif;
+
+  outline: none;
+  backdrop-filter: blur(10px);
+
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.1),
+    0 0 50px rgba(100, 150, 255, 0.08);
+
+  transition: border-color 0.4s ease, box-shadow 0.4s ease;
+}
+
+.prompt::placeholder {
+  color: rgba(255, 255, 255, 0.5);
+  font-weight: 300;
+}
+
+.prompt:focus,
+.prompt:hover {
+  border-color: rgba(255, 255, 255, 0.35);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.15),
+    0 0 60px rgba(100, 150, 255, 0.18);
+}
+
+.prompt:focus-visible {
+  border-color: rgba(150, 190, 255, 0.6);
+}
+
+/* ---------- Status label ---------- */
+
+.status-label {
+  font-size: 11px;
+  font-weight: 300;
+  letter-spacing: 3px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.35);
+}
+
+/* ---------- Reduced motion ---------- */
+
+@media (prefers-reduced-motion: reduce) {
+  .star,
+  .glow-close,
+  .glow-ambient,
+  .orbit-ring,
+  .prompt-wrapper {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+  }
+  .orbit-ring {
+    animation-name: ring-in !important;
   }
 }

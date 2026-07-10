@@ -1,121 +1,92 @@
-import { useState } from 'react'
-import reactLogo from './assets/react.svg'
-import viteLogo from './assets/vite.svg'
-import heroImg from './assets/hero.png'
+import { useEffect, useState } from 'react'
 import './App.css'
 
+const FULL_PLACEHOLDER = "What would you like to build?"
+const TYPING_START_DELAY = 1900 // waits for prompt-in animation to land first
+const TYPING_SPEED = 45
+
+function useStars(count = 55) {
+  const [stars] = useState(() =>
+    Array.from({ length: count }, (_, i) => ({
+      id: i,
+      top: Math.random() * 100,
+      left: Math.random() * 100,
+      size: Math.random() * 1.5 + 0.5,
+      maxOpacity: Math.random() * 0.5 + 0.15,
+      duration: Math.random() * 3 + 3,
+      delay: Math.random() * 1.5,
+    }))
+  )
+  return stars
+}
+
 function App() {
-  const [count, setCount] = useState(0)
+  const stars = useStars()
+  const [placeholder, setPlaceholder] = useState('')
+  const [isTyping, setIsTyping] = useState(true) // was: useState(false)
+  const [showCursor, setShowCursor] = useState(true)
+
+  useEffect(() => {
+    let charIndex = 0
+
+    const startTimeout = setTimeout(() => {
+      const typeInterval = setInterval(() => {
+        charIndex++
+        setPlaceholder(FULL_PLACEHOLDER.slice(0, charIndex))
+        if (charIndex >= FULL_PLACEHOLDER.length) {
+          clearInterval(typeInterval)
+          setIsTyping(false)
+        }
+      }, TYPING_SPEED)
+      return () => clearInterval(typeInterval)
+    }, TYPING_START_DELAY)
+
+    return () => clearTimeout(startTimeout)
+  }, [])
+
+  useEffect(() => {
+    if (!isTyping) return
+    const blink = setInterval(() => setShowCursor((c) => !c), 500)
+    return () => clearInterval(blink)
+  }, [isTyping])
+
+  const displayPlaceholder = isTyping
+    ? placeholder + (showCursor ? '|' : ' ')
+    : placeholder
 
   return (
-    <>
-      <section id="center">
-        <div className="hero">
-          <img src={heroImg} className="base" width="170" height="179" alt="" />
-          <img src={reactLogo} className="framework" alt="React logo" />
-          <img src={viteLogo} className="vite" alt="Vite logo" />
-        </div>
-        <div>
-          <h1>Get started</h1>
-          <p>
-            Edit <code>src/App.jsx</code> and save to test <code>HMR</code>
-          </p>
-        </div>
-        <button
-          type="button"
-          className="counter"
-          onClick={() => setCount((count) => count + 1)}
-        >
-          Count is {count}
-        </button>
-      </section>
+    <div className="container">
+      <div className="starfield">
+        {stars.map((s) => (
+          <div
+            key={s.id}
+            className="star"
+            style={{
+              top: `${s.top}%`,
+              left: `${s.left}%`,
+              width: `${s.size}px`,
+              height: `${s.size}px`,
+              '--max-opacity': s.maxOpacity,
+              '--dur': `${s.duration}s`,
+              animationDelay: `${s.delay}s, ${s.delay + 2}s`,
+            }}
+          />
+        ))}
+      </div>
 
-      <div className="ticks"></div>
+      <div className="glow-close" />
+      <div className="glow-ambient" />
+      <div className="orbit-ring" />
 
-      <section id="next-steps">
-        <div id="docs">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#documentation-icon"></use>
-          </svg>
-          <h2>Documentation</h2>
-          <p>Your questions, answered</p>
-          <ul>
-            <li>
-              <a href="https://vite.dev/" target="_blank">
-                <img className="logo" src={viteLogo} alt="" />
-                Explore Vite
-              </a>
-            </li>
-            <li>
-              <a href="https://react.dev/" target="_blank">
-                <img className="button-icon" src={reactLogo} alt="" />
-                Learn more
-              </a>
-            </li>
-          </ul>
-        </div>
-        <div id="social">
-          <svg className="icon" role="presentation" aria-hidden="true">
-            <use href="/icons.svg#social-icon"></use>
-          </svg>
-          <h2>Connect with us</h2>
-          <p>Join the Vite community</p>
-          <ul>
-            <li>
-              <a href="https://github.com/vitejs/vite" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#github-icon"></use>
-                </svg>
-                GitHub
-              </a>
-            </li>
-            <li>
-              <a href="https://chat.vite.dev/" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#discord-icon"></use>
-                </svg>
-                Discord
-              </a>
-            </li>
-            <li>
-              <a href="https://x.com/vite_js" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#x-icon"></use>
-                </svg>
-                X.com
-              </a>
-            </li>
-            <li>
-              <a href="https://bsky.app/profile/vite.dev" target="_blank">
-                <svg
-                  className="button-icon"
-                  role="presentation"
-                  aria-hidden="true"
-                >
-                  <use href="/icons.svg#bluesky-icon"></use>
-                </svg>
-                Bluesky
-              </a>
-            </li>
-          </ul>
-        </div>
-      </section>
-
-      <div className="ticks"></div>
-      <section id="spacer"></section>
-    </>
+      <div className="prompt-wrapper">
+        <input
+          className="prompt"
+          type="text"
+          placeholder={displayPlaceholder}
+        />
+        <div className="status-label">Awaiting input</div>
+      </div>
+    </div>
   )
 }
 
