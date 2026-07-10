@@ -140,7 +140,6 @@
   opacity: 0;
   transform: translateY(12px);
   animation: prompt-in 1s ease forwards 1.5s;
-  transition: opacity 0.5s ease, transform 0.5s ease;
 }
 
 @keyframes prompt-in {
@@ -201,8 +200,11 @@
 /* ---------- Dissolve (prompt -> seed) ---------- */
 
 .phase-dissolving .prompt-wrapper {
-  opacity: 0;
-  transform: translateY(-8px) scale(0.96);
+  /* no opacity/transform override here — Scene.jsx writes a real per-frame
+     scale() directly to this element's style, driven by the same camera
+     z/fov values moving the dolly, so it recedes at the camera's actual
+     speed instead of running its own decoupled animation */
+  pointer-events: none;
 }
 
 .phase-dissolving .glow-close,

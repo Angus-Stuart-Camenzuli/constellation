@@ -5,12 +5,19 @@ import './App.css'
 const FULL_PLACEHOLDER = "What would you like to build?"
 const TYPING_START_DELAY = 1900
 const TYPING_SPEED = 45
-const DISSOLVE_DURATION = 650
+const DISSOLVE_DURATION = 300 // fade timing for the glow/orbit-ring only; the prompt itself is removed separately, once Scene's real per-frame scale shrinks it away (see promptGone)
+const AMBIENT_VOLUME = 0.25
+const AMBIENT_FADE_OUT = 350
+const AMBIENT_FADE_IN = 1400
 
 function App() {
   const [value, setValue] = useState('')
   const [phase, setPhase] = useState('landing') // landing | dissolving | constellation
+  const [dollying, setDollying] = useState(false) // camera dolly — starts on Enter, independent of the CSS phase timeout
   const [dollyDone, setDollyDone] = useState(false)
+  const [promptGone, setPromptGone] = useState(false) // flips once Scene's real per-frame scale shrinks the prompt below PROMPT_VANISH_SCALE
+
+  const promptWrapperRef = useRef(null)
 
   const [placeholder, setPlaceholder] = useState('')
   const [isTyping, setIsTyping] = useState(true)
@@ -22,6 +29,7 @@ function App() {
   const ambientRef = useRef(null)
   const whooshRef = useRef(null)
   const ambientStarted = useRef(false)
+  const ambientFadeFrame = useRef(null)
 
   useEffect(() => {
     let charIndex = 0
@@ -51,9 +59,25 @@ function App() {
 
   // volume levels — kept low so the hum sits under the visuals, not over them
   useEffect(() => {
-    if (ambientRef.current) ambientRef.current.volume = 0.25
+    if (ambientRef.current) ambientRef.current.volume = AMBIENT_VOLUME
     if (whooshRef.current) whooshRef.current.volume = 0.4
   }, [])
+
+  // ramps the ambient hum's volume from its current level to `to` over `duration`ms
+  const fadeAmbient = (to, duration) => {
+    const audio = ambientRef.current
+    if (!audio) return
+    if (ambientFadeFrame.current) cancelAnimationFrame(ambientFadeFrame.current)
+
+    const from = audio.volume
+    const start = performance.now()
+    const step = (now) => {
+      const t = Math.min((now - start) / duration, 1)
+      audio.volume = from + (to - from) * t
+      ambientFadeFrame.current = t < 1 ? requestAnimationFrame(step) : null
+    }
+    ambientFadeFrame.current = requestAnimationFrame(step)
+  }
 
   // sync the mute toggle to both audio elements and remember the choice
   useEffect(() => {
@@ -99,8 +123,13 @@ function App() {
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && value.trim().length > 0 && phase === 'landing') {
       whooshRef.current?.play().catch(() => {})
+      fadeAmbient(0, AMBIENT_FADE_OUT)
       setPhase('dissolving')
-      setTimeout(() => setPhase('constellation'), DISSOLVE_DURATION)
+      setDollying(true)
+      setTimeout(() => {
+        setPhase('constellation')
+        fadeAmbient(AMBIENT_VOLUME, AMBIENT_FADE_IN)
+      }, DISSOLVE_DURATION)
     }
   }
 
@@ -110,8 +139,10 @@ function App() {
       <audio ref={whooshRef} src="/audio/enter-whoosh.mp3" preload="auto" />
 
       <Scene
-        dollyActive={phase === 'constellation' && !dollyDone}
+        dollyActive={dollying && !dollyDone}
         onDollyComplete={() => setDollyDone(true)}
+        promptRef={promptWrapperRef}
+        onPromptFar={() => setPromptGone(true)}
       />
 
       {phase !== 'constellation' && (
@@ -122,8 +153,8 @@ function App() {
         </>
       )}
 
-      {phase !== 'constellation' && (
-        <div className="prompt-wrapper">
+      {!promptGone && (
+        <div className="prompt-wrapper" ref={promptWrapperRef}>
           <input
             className="prompt"
             type="text"
