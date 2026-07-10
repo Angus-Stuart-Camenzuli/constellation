@@ -7,7 +7,7 @@ const easeInExpo = (t) => (t === 0 ? 0 : Math.pow(2, 10 * (t - 1)))
 const DOLLY = {
   duration: 1.8,
   startZ: 1,
-  targetZ: 1400,
+  targetZ: 220, // stays inside the star shell (radius 40-300) so stars remain visible after the dolly
   startFov: 45,
   endFov: 90,
   ease: easeInExpo,

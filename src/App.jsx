@@ -15,6 +15,9 @@ function App() {
   const [placeholder, setPlaceholder] = useState('')
   const [isTyping, setIsTyping] = useState(true)
   const [showCursor, setShowCursor] = useState(true)
+  const [muted, setMuted] = useState(
+    () => localStorage.getItem('constellation-muted') === 'true'
+  )
 
   const ambientRef = useRef(null)
   const whooshRef = useRef(null)
@@ -46,14 +49,52 @@ function App() {
     ? placeholder + (showCursor ? '|' : ' ')
     : placeholder
 
-  // start ambient hum on the first real user gesture (focusing the prompt)
-  const handleFocus = () => {
-    if (ambientStarted.current) return
-    ambientStarted.current = true
-    ambientRef.current?.play().catch(() => {
-      // autoplay blocked, ignore — hum just won't start until a later gesture
-    })
-  }
+  // volume levels — kept low so the hum sits under the visuals, not over them
+  useEffect(() => {
+    if (ambientRef.current) ambientRef.current.volume = 0.25
+    if (whooshRef.current) whooshRef.current.volume = 0.4
+  }, [])
+
+  // sync the mute toggle to both audio elements and remember the choice
+  useEffect(() => {
+    if (ambientRef.current) ambientRef.current.muted = muted
+    if (whooshRef.current) whooshRef.current.muted = muted
+    localStorage.setItem('constellation-muted', String(muted))
+  }, [muted])
+
+  const toggleMuted = () => setMuted((m) => !m)
+
+  // try to autoplay the hum on load; most browsers allow this once muted,
+  // otherwise fall back to starting it on the first user gesture anywhere
+  useEffect(() => {
+    const tryPlay = () => {
+      if (ambientStarted.current) return
+      ambientRef.current
+        ?.play()
+        .then(() => {
+          ambientStarted.current = true
+        })
+        .catch(() => {
+          // autoplay blocked — the fallback listener below will retry
+        })
+    }
+
+    tryPlay()
+
+    const fallback = () => {
+      tryPlay()
+      if (ambientStarted.current) {
+        window.removeEventListener('pointerdown', fallback)
+        window.removeEventListener('keydown', fallback)
+      }
+    }
+    window.addEventListener('pointerdown', fallback)
+    window.addEventListener('keydown', fallback)
+    return () => {
+      window.removeEventListener('pointerdown', fallback)
+      window.removeEventListener('keydown', fallback)
+    }
+  }, [])
 
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && value.trim().length > 0 && phase === 'landing') {
@@ -88,7 +129,6 @@ function App() {
             type="text"
             value={value}
             onChange={(e) => setValue(e.target.value)}
-            onFocus={handleFocus}
             onKeyDown={handleKeyDown}
             placeholder={displayPlaceholder}
           />
@@ -97,6 +137,44 @@ function App() {
       )}
 
       {phase !== 'landing' && !dollyDone && <div className="seed-point" />}
+
+      <button
+        type="button"
+        className="mute-toggle"
+        onClick={toggleMuted}
+        aria-label={muted ? 'Unmute ambient sound' : 'Mute ambient sound'}
+        title={muted ? 'Unmute' : 'Mute'}
+      >
+        {muted ? (
+          <svg viewBox="0 0 24 24" width="16" height="16">
+            <path
+              d="M4 9v6h4l5 5V4L8 9H4z"
+              fill="rgba(255,255,255,0.6)"
+            />
+            <path
+              d="M16 9l5 6M21 9l-5 6"
+              stroke="rgba(255,255,255,0.6)"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              fill="none"
+            />
+          </svg>
+        ) : (
+          <svg viewBox="0 0 24 24" width="16" height="16">
+            <path
+              d="M4 9v6h4l5 5V4L8 9H4z"
+              fill="rgba(255,255,255,0.6)"
+            />
+            <path
+              d="M16.5 8.5a5 5 0 0 1 0 7M19 6a8.5 8.5 0 0 1 0 12"
+              stroke="rgba(255,255,255,0.6)"
+              strokeWidth="1.5"
+              strokeLinecap="round"
+              fill="none"
+            />
+          </svg>
+        )}
+      </button>
     </div>
   )
 }

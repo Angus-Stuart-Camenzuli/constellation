@@ -6,9 +6,15 @@ const STAR_COUNT = 3000
 const FIELD_MIN_RADIUS = 40
 const FIELD_MAX_RADIUS = 300
 
-const MIN_STREAK = 0.4 // resting length, reads as a dot/dash rather than a line
+const MIN_STREAK = 0.4 // baseline added on top of motion streak during warp — unrelated to the resting look
 const MAX_STREAK = 40
 const STREAK_SCALE = 18 // tune this to taste — higher = more dramatic streaking
+
+// Resting (non-warp) length is a fraction of distance rather than a flat
+// world-space size, so every star reads as the same small speck on screen
+// regardless of how close it sits inside the shell — a flat length made the
+// near stars (close to FIELD_MIN_RADIUS) look like long dashes.
+const REST_STREAK_ANGULAR = 0.002
 
 function randomPointInShell(minR, maxR) {
   const r = minR + Math.random() * (maxR - minR)
@@ -23,7 +29,8 @@ function randomPointInShell(minR, maxR) {
 
 // reused scratch vectors to avoid per-frame allocation
 const toCam = new THREE.Vector3()
-const dir = new THREE.Vector3()
+const camForward = new THREE.Vector3()
+const perp = new THREE.Vector3()
 const half = new THREE.Vector3()
 const p1 = new THREE.Vector3()
 const p2 = new THREE.Vector3()
@@ -73,6 +80,7 @@ export default function HyperspaceStars({ active }) {
     if (!data.geometry) return
 
     const cam = state.camera
+    cam.getWorldDirection(camForward)
     if (data.prevCamZ === null) data.prevCamZ = cam.position.z
     const speed = Math.abs(cam.position.z - data.prevCamZ) * 60 // approx per-second velocity
     data.prevCamZ = cam.position.z
@@ -84,13 +92,24 @@ export default function HyperspaceStars({ active }) {
 
       toCam.subVectors(star, cam.position)
       const dist = Math.max(toCam.length(), 1)
-      dir.copy(toCam).normalize()
+
+      // Streaks must radiate across the screen, not toward the camera: a
+      // segment built along the camera-to-star ray projects to a single
+      // point (both ends share the same screen position), so use the
+      // component of the sightline perpendicular to the view axis instead.
+      const depth = toCam.dot(camForward)
+      perp.copy(toCam).addScaledVector(camForward, -depth)
+      if (perp.lengthSq() > 1e-6) {
+        perp.normalize()
+      } else {
+        perp.set(0, 0, 0)
+      }
 
       const streak = activeRef.current
         ? Math.min(MIN_STREAK + (speed * STREAK_SCALE) / dist, MAX_STREAK)
-        : MIN_STREAK
+        : REST_STREAK_ANGULAR * dist
 
-      half.copy(dir).multiplyScalar(streak / 2)
+      half.copy(perp).multiplyScalar(streak / 2)
       p1.copy(star).sub(half)
       p2.copy(star).add(half)
 
