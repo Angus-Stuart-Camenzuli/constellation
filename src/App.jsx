@@ -1,34 +1,27 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
+import Scene from './Scene'
 import './App.css'
 
 const FULL_PLACEHOLDER = "What would you like to build?"
-const TYPING_START_DELAY = 1900 // waits for prompt-in animation to land first
+const TYPING_START_DELAY = 1900
 const TYPING_SPEED = 45
-
-function useStars(count = 55) {
-  const [stars] = useState(() =>
-    Array.from({ length: count }, (_, i) => ({
-      id: i,
-      top: Math.random() * 100,
-      left: Math.random() * 100,
-      size: Math.random() * 1.5 + 0.5,
-      maxOpacity: Math.random() * 0.5 + 0.15,
-      duration: Math.random() * 3 + 3,
-      delay: Math.random() * 1.5,
-    }))
-  )
-  return stars
-}
+const DISSOLVE_DURATION = 650
 
 function App() {
-  const stars = useStars()
+  const [value, setValue] = useState('')
+  const [phase, setPhase] = useState('landing') // landing | dissolving | constellation
+  const [dollyDone, setDollyDone] = useState(false)
+
   const [placeholder, setPlaceholder] = useState('')
-  const [isTyping, setIsTyping] = useState(true) // was: useState(false)
+  const [isTyping, setIsTyping] = useState(true)
   const [showCursor, setShowCursor] = useState(true)
+
+  const ambientRef = useRef(null)
+  const whooshRef = useRef(null)
+  const ambientStarted = useRef(false)
 
   useEffect(() => {
     let charIndex = 0
-
     const startTimeout = setTimeout(() => {
       const typeInterval = setInterval(() => {
         charIndex++
@@ -40,7 +33,6 @@ function App() {
       }, TYPING_SPEED)
       return () => clearInterval(typeInterval)
     }, TYPING_START_DELAY)
-
     return () => clearTimeout(startTimeout)
   }, [])
 
@@ -54,38 +46,57 @@ function App() {
     ? placeholder + (showCursor ? '|' : ' ')
     : placeholder
 
+  // start ambient hum on the first real user gesture (focusing the prompt)
+  const handleFocus = () => {
+    if (ambientStarted.current) return
+    ambientStarted.current = true
+    ambientRef.current?.play().catch(() => {
+      // autoplay blocked, ignore — hum just won't start until a later gesture
+    })
+  }
+
+  const handleKeyDown = (e) => {
+    if (e.key === 'Enter' && value.trim().length > 0 && phase === 'landing') {
+      whooshRef.current?.play().catch(() => {})
+      setPhase('dissolving')
+      setTimeout(() => setPhase('constellation'), DISSOLVE_DURATION)
+    }
+  }
+
   return (
-    <div className="container">
-      <div className="starfield">
-        {stars.map((s) => (
-          <div
-            key={s.id}
-            className="star"
-            style={{
-              top: `${s.top}%`,
-              left: `${s.left}%`,
-              width: `${s.size}px`,
-              height: `${s.size}px`,
-              '--max-opacity': s.maxOpacity,
-              '--dur': `${s.duration}s`,
-              animationDelay: `${s.delay}s, ${s.delay + 2}s`,
-            }}
+    <div className={`container phase-${phase}`}>
+      <audio ref={ambientRef} src="/audio/ambient-hum.mp3" loop preload="auto" />
+      <audio ref={whooshRef} src="/audio/enter-whoosh.mp3" preload="auto" />
+
+      <Scene
+        dollyActive={phase === 'constellation' && !dollyDone}
+        onDollyComplete={() => setDollyDone(true)}
+      />
+
+      {phase !== 'constellation' && (
+        <>
+          <div className="glow-close" />
+          <div className="glow-ambient" />
+          <div className="orbit-ring" />
+        </>
+      )}
+
+      {phase !== 'constellation' && (
+        <div className="prompt-wrapper">
+          <input
+            className="prompt"
+            type="text"
+            value={value}
+            onChange={(e) => setValue(e.target.value)}
+            onFocus={handleFocus}
+            onKeyDown={handleKeyDown}
+            placeholder={displayPlaceholder}
           />
-        ))}
-      </div>
+          <div className="status-label">Awaiting input</div>
+        </div>
+      )}
 
-      <div className="glow-close" />
-      <div className="glow-ambient" />
-      <div className="orbit-ring" />
-
-      <div className="prompt-wrapper">
-        <input
-          className="prompt"
-          type="text"
-          placeholder={displayPlaceholder}
-        />
-        <div className="status-label">Awaiting input</div>
-      </div>
+      {phase !== 'landing' && !dollyDone && <div className="seed-point" />}
     </div>
   )
 }

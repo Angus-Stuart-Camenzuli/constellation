@@ -11,38 +11,12 @@
   overflow: hidden;
 }
 
-/* ---------- Starfield ---------- */
+/* ---------- 3D scene canvas ---------- */
 
-.starfield {
-  position: absolute;
+.scene-canvas {
+  position: absolute !important;
   inset: 0;
   z-index: 0;
-  pointer-events: none;
-}
-
-.star {
-  position: absolute;
-  border-radius: 50%;
-  background: white;
-  opacity: 0;
-  animation: star-in 2s ease forwards, twinkle var(--dur) ease-in-out infinite;
-  animation-delay: var(--delay), calc(var(--delay) + 2s);
-}
-
-@keyframes star-in {
-  to {
-    opacity: var(--max-opacity);
-  }
-}
-
-@keyframes twinkle {
-  0%,
-  100% {
-    opacity: calc(var(--max-opacity) * 0.4);
-  }
-  50% {
-    opacity: var(--max-opacity);
-  }
 }
 
 /* ---------- Ambient glow ---------- */
@@ -53,6 +27,7 @@
   z-index: 0;
   opacity: 0;
   pointer-events: none;
+  transition: opacity 0.5s ease;
 }
 
 .glow-close {
@@ -111,6 +86,7 @@
   z-index: 1;
   opacity: 0;
   pointer-events: none;
+  transition: opacity 0.5s ease;
 
   background: conic-gradient(
     from 0deg,
@@ -131,8 +107,7 @@
     #000 calc(100% - 1.5px)
   );
 
-  animation: ring-in 1.4s ease forwards 0.9s,
-    spin 26s linear infinite 2.3s;
+  animation: ring-in 1.4s ease forwards 0.9s, spin 26s linear infinite 2.3s;
 }
 
 @keyframes ring-in {
@@ -165,6 +140,7 @@
   opacity: 0;
   transform: translateY(12px);
   animation: prompt-in 1s ease forwards 1.5s;
+  transition: opacity 0.5s ease, transform 0.5s ease;
 }
 
 @keyframes prompt-in {
@@ -192,8 +168,7 @@
   outline: none;
   backdrop-filter: blur(10px);
 
-  box-shadow: 0 0 20px rgba(255, 255, 255, 0.1),
-    0 0 50px rgba(100, 150, 255, 0.08);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.1), 0 0 50px rgba(100, 150, 255, 0.08);
 
   transition: border-color 0.4s ease, box-shadow 0.4s ease;
 }
@@ -206,8 +181,7 @@
 .prompt:focus,
 .prompt:hover {
   border-color: rgba(255, 255, 255, 0.35);
-  box-shadow: 0 0 20px rgba(255, 255, 255, 0.15),
-    0 0 60px rgba(100, 150, 255, 0.18);
+  box-shadow: 0 0 20px rgba(255, 255, 255, 0.15), 0 0 60px rgba(100, 150, 255, 0.18);
 }
 
 .prompt:focus-visible {
@@ -224,14 +198,51 @@
   color: rgba(255, 255, 255, 0.35);
 }
 
+/* ---------- Dissolve (prompt -> seed) ---------- */
+
+.phase-dissolving .prompt-wrapper {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.96);
+}
+
+.phase-dissolving .glow-close,
+.phase-dissolving .glow-ambient,
+.phase-dissolving .orbit-ring {
+  opacity: 0;
+}
+
+/* ---------- Seed point ---------- */
+
+.seed-point {
+  position: absolute;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: rgba(200, 220, 255, 0.9);
+  box-shadow: 0 0 12px 4px rgba(140, 180, 255, 0.6),
+    0 0 30px 10px rgba(100, 150, 255, 0.25);
+  z-index: 2;
+  opacity: 0;
+  transform: scale(0.3);
+  animation: seed-in 0.5s ease forwards;
+  pointer-events: none;
+}
+
+@keyframes seed-in {
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
 /* ---------- Reduced motion ---------- */
 
 @media (prefers-reduced-motion: reduce) {
-  .star,
   .glow-close,
   .glow-ambient,
   .orbit-ring,
-  .prompt-wrapper {
+  .prompt-wrapper,
+  .seed-point {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
