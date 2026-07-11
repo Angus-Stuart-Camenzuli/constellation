@@ -200,10 +200,12 @@
 /* ---------- Dissolve (prompt -> seed) ---------- */
 
 .phase-dissolving .prompt-wrapper {
-  /* no opacity/transform override here — Scene.jsx writes a real per-frame
-     scale() directly to this element's style, driven by the same camera
-     z/fov values moving the dolly, so it recedes at the camera's actual
-     speed instead of running its own decoupled animation */
+  /* prompt-in's forwards-fill outranks inline styles in the cascade, which
+     was blocking Scene.jsx's per-frame scale(). Kill the animation and set
+     sane base values; inline styles now win. */
+  animation: none;
+  opacity: 1;
+  transform: none;
   pointer-events: none;
 }
 

@@ -5,7 +5,7 @@ import './App.css'
 const FULL_PLACEHOLDER = "What would you like to build?"
 const TYPING_START_DELAY = 1900
 const TYPING_SPEED = 45
-const DISSOLVE_DURATION = 300 // fade timing for the glow/orbit-ring only; the prompt itself is removed separately, once Scene's real per-frame scale shrinks it away (see promptGone)
+const DISSOLVE_DURATION = 500 // fade timing for the glow/orbit-ring only; the prompt itself is removed separately, once Scene's real per-frame scale shrinks it away (see promptGone)
 const AMBIENT_VOLUME = 0.25
 const AMBIENT_FADE_OUT = 350
 const AMBIENT_FADE_IN = 1400
@@ -167,7 +167,7 @@ function App() {
         </div>
       )}
 
-      {phase !== 'landing' && !dollyDone && <div className="seed-point" />}
+      {promptGone && !dollyDone && <div className="seed-point" />}
 
       <button
         type="button"
