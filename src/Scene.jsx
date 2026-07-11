@@ -1,6 +1,7 @@
 import { useRef } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import HyperspaceStars from './HyperspaceStars'
+import ConstellationNodes from './ConstellationNodes'
 
 // slow ignition → violent mid-jump → smooth settle. easeOutCubic had its
 // peak velocity at frame zero (instant warp); this gives the launch a beat
@@ -23,7 +24,7 @@ const PROMPT_FADE_BOOST = 2 // opacity = scale × this — solid until ~half siz
 const PROMPT_MAX_BLUR = 2.5 // px of blur once fully receded — melts the crisp UI edges
 const PROMPT_MAX_GLOW = 2 // extra brightness once fully receded — small + bright + blurred = star
 
-function CameraRig({ active, promptRef, onPromptFar }) {
+function CameraRig({ active, onComplete, promptRef, onPromptFar }) {
   const elapsed = useRef(0)
   const done = useRef(false)
   const promptGone = useRef(false)
@@ -62,12 +63,16 @@ function CameraRig({ active, promptRef, onPromptFar }) {
         onPromptFar?.()
       }
     }
+    if (t >= 1) {
+      done.current = true
+      onComplete?.()
+    }
   })
 
   return null
 }
 
-export default function Scene({ dollyActive, onDollyComplete, promptRef, onPromptFar }) {
+export default function Scene({ dollyActive, onDollyComplete, promptRef, onPromptFar, showNodes }) {
   return (
     <Canvas
       className="scene-canvas"
@@ -77,7 +82,8 @@ export default function Scene({ dollyActive, onDollyComplete, promptRef, onPromp
       {/* fades distant stars into black — kills the "fog of stars" cloud
           that stacks up at screen center when looking across the shell */}
       {/* <fog attach="fog" args={['#000000', 120, 420]} /> */}
-      <HyperspaceStars />
+      <HyperspaceStars /> 
+      {showNodes && <ConstellationNodes />}
       <CameraRig
         active={dollyActive}
         onComplete={onDollyComplete}
