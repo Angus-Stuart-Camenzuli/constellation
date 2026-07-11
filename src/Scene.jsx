@@ -74,6 +74,9 @@ export default function Scene({ dollyActive, onDollyComplete, promptRef, onPromp
       camera={{ position: [0, 0, DOLLY.startZ], fov: DOLLY.startFov }}
       gl={{ antialias: true }}
     >
+      {/* fades distant stars into black — kills the "fog of stars" cloud
+          that stacks up at screen center when looking across the shell */}
+      {/* <fog attach="fog" args={['#000000', 120, 420]} /> */}
       <HyperspaceStars />
       <CameraRig
         active={dollyActive}

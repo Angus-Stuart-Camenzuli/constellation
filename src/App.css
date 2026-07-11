@@ -48,6 +48,33 @@
     ambient 15s ease-in-out infinite 2.1s;
 }
 
+/* orb + ring live inside .prompt-wrapper now, so they inherit its
+   per-frame recede (scale/opacity/blur from Scene.jsx) and vanish with it.
+   Centered via negative margins, NOT transform — their keyframes
+   (breathe/ambient/spin) already own the transform property */
+.glow-close,
+.glow-ambient,
+.orbit-ring {
+  left: 50%;
+  top: 50%;
+  z-index: -1; /* behind the input within the wrapper's stacking context */
+}
+
+.glow-close {
+  margin-left: -225px; /* half of 450x120 */
+  margin-top: -60px;
+}
+
+.glow-ambient {
+  margin-left: -400px; /* half of 800x300 */
+  margin-top: -150px;
+}
+
+.orbit-ring {
+  margin-left: -280px; /* half of 560x560 */
+  margin-top: -280px;
+}
+
 @keyframes fade-in {
   to {
     opacity: 1;
@@ -83,7 +110,6 @@
   width: 560px;
   height: 560px;
   border-radius: 50%;
-  z-index: 1;
   opacity: 0;
   pointer-events: none;
   transition: opacity 0.5s ease;
@@ -209,36 +235,6 @@
   pointer-events: none;
 }
 
-.phase-dissolving .glow-close,
-.phase-dissolving .glow-ambient,
-.phase-dissolving .orbit-ring {
-  opacity: 0;
-}
-
-/* ---------- Seed point ---------- */
-
-.seed-point {
-  position: absolute;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: rgba(200, 220, 255, 0.9);
-  box-shadow: 0 0 12px 4px rgba(140, 180, 255, 0.6),
-    0 0 30px 10px rgba(100, 150, 255, 0.25);
-  z-index: 2;
-  opacity: 0;
-  transform: scale(0.3);
-  animation: seed-in 0.5s ease forwards;
-  pointer-events: none;
-}
-
-@keyframes seed-in {
-  to {
-    opacity: 1;
-    transform: scale(1);
-  }
-}
-
 /* ---------- Mute toggle ---------- */
 
 .mute-toggle {
@@ -279,8 +275,7 @@
   .glow-close,
   .glow-ambient,
   .orbit-ring,
-  .prompt-wrapper,
-  .seed-point {
+  .prompt-wrapper {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
   }
