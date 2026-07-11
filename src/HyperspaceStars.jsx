@@ -2,7 +2,7 @@ import { useRef, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 
-const STAR_COUNT = 3000
+const STAR_COUNT = 1400
 const FIELD_MIN_RADIUS = 40
 const FIELD_MAX_RADIUS = 300
 
