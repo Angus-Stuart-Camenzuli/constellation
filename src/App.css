@@ -302,3 +302,11 @@
     opacity: 1;
   }
 }
+
+.phase-constellation {
+  cursor: grab;
+}
+
+.phase-constellation:active {
+  cursor: grabbing;
+}

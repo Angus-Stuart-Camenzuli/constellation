@@ -35,7 +35,7 @@ const half = new THREE.Vector3()
 const p1 = new THREE.Vector3()
 const p2 = new THREE.Vector3()
 
-export default function HyperspaceStars() {
+export default function HyperspaceStars({ warp }) {
   // groupRef is only ever touched inside useEffect/useFrame, never read during render
   const groupRef = useRef()
   // everything mutable (geometry, star data, camera-speed state) lives here,
@@ -46,6 +46,11 @@ export default function HyperspaceStars() {
     prevCamZ: null,
     smoothedSpeed: 0,
   })
+  // linter-safe prop mirror: read inside useFrame, updated only in an effect
+  const warpRef = useRef(warp)
+  useEffect(() => {
+    warpRef.current = warp
+  }, [warp])
 
   useEffect(() => {
     const group = groupRef.current
@@ -83,9 +88,12 @@ export default function HyperspaceStars() {
     const cam = state.camera
     cam.getWorldDirection(camForward)
     if (data.prevCamZ === null) data.prevCamZ = cam.position.z
-    // true per-second velocity (Δz/Δt) — the old ×60 assumed a 60Hz monitor,
-    // so streaks were half-length on 120Hz displays
-    const speed = delta > 0 ? Math.abs(cam.position.z - data.prevCamZ) / delta : 0
+    // streaking is an intro-only effect: outside the dolly the measured
+    // speed is forced to 0, so free-camera zoom/pan never triggers warp.
+    // smoothedSpeed still decays through the damp — no snap at handoff
+    const speed = warpRef.current && delta > 0
+      ? Math.abs(cam.position.z - data.prevCamZ) / delta
+      : 0
     data.prevCamZ = cam.position.z
 
     // exponential smoothing: streak length follows velocity with momentum,
