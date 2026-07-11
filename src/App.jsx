@@ -144,17 +144,11 @@ function App() {
         promptRef={promptWrapperRef}
         onPromptFar={() => setPromptGone(true)}
       />
-
-      {phase !== 'constellation' && (
-        <>
+    {!promptGone && (
+        <div className="prompt-wrapper" ref={promptWrapperRef}>
           <div className="glow-close" />
           <div className="glow-ambient" />
           <div className="orbit-ring" />
-        </>
-      )}
-
-      {!promptGone && (
-        <div className="prompt-wrapper" ref={promptWrapperRef}>
           <input
             className="prompt"
             type="text"
@@ -166,8 +160,6 @@ function App() {
           <div className="status-label">Awaiting input</div>
         </div>
       )}
-
-      {promptGone && !dollyDone && <div className="seed-point" />}
 
       <button
         type="button"

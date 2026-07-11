@@ -8,7 +8,7 @@ const FIELD_MAX_RADIUS = 300
 
 const MAX_STREAK = 40
 const STREAK_SCALE = 18 // tune this to taste — higher = more dramatic streaking
-const SPEED_SMOOTHING = 4 // damp lambda: lower = streaks take longer to decay after the camera stops
+const SPEED_SMOOTHING = 6 // damp lambda: lower = streaks take longer to decay after the camera stops
 
 // Resting (non-warp) length is a fraction of distance rather than a flat
 // world-space size, so every star reads as the same small speck on screen
