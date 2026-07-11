@@ -74,7 +74,7 @@ export default function Scene({ dollyActive, onDollyComplete, promptRef, onPromp
       camera={{ position: [0, 0, DOLLY.startZ], fov: DOLLY.startFov }}
       gl={{ antialias: true }}
     >
-      <HyperspaceStars active={dollyActive} />
+      <HyperspaceStars />
       <CameraRig
         active={dollyActive}
         onComplete={onDollyComplete}
