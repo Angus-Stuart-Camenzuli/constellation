@@ -6,9 +6,9 @@ const STAR_COUNT = 3000
 const FIELD_MIN_RADIUS = 40
 const FIELD_MAX_RADIUS = 300
 
-const MIN_STREAK = 0.4 // baseline added on top of motion streak during warp — unrelated to the resting look
 const MAX_STREAK = 40
 const STREAK_SCALE = 18 // tune this to taste — higher = more dramatic streaking
+const SPEED_SMOOTHING = 4 // damp lambda: lower = streaks take longer to decay after the camera stops
 
 // Resting (non-warp) length is a fraction of distance rather than a flat
 // world-space size, so every star reads as the same small speck on screen
@@ -35,16 +35,17 @@ const half = new THREE.Vector3()
 const p1 = new THREE.Vector3()
 const p2 = new THREE.Vector3()
 
-export default function HyperspaceStars({ active }) {
+export default function HyperspaceStars() {
   // groupRef is only ever touched inside useEffect/useFrame, never read during render
   const groupRef = useRef()
-  // everything mutable (geometry, star data, previous camera z) lives here,
+  // everything mutable (geometry, star data, camera-speed state) lives here,
   // completely outside React's render cycle
-  const dataRef = useRef({ geometry: null, starPositions: null, prevCamZ: null })
-  const activeRef = useRef(active)
-  useEffect(() => {
-    activeRef.current = active
-  }, [active])
+  const dataRef = useRef({
+    geometry: null,
+    starPositions: null,
+    prevCamZ: null,
+    smoothedSpeed: 0,
+  })
 
   useEffect(() => {
     const group = groupRef.current
@@ -66,7 +67,7 @@ export default function HyperspaceStars({ active }) {
     const line = new THREE.LineSegments(geometry, material)
     group.add(line)
 
-    dataRef.current = { geometry, starPositions, prevCamZ: null }
+    dataRef.current = { geometry, starPositions, prevCamZ: null, smoothedSpeed: 0 }
 
     return () => {
       group.remove(line)
@@ -75,15 +76,23 @@ export default function HyperspaceStars({ active }) {
     }
   }, [])
 
-  useFrame((state) => {
+  useFrame((state, delta) => {
     const data = dataRef.current
     if (!data.geometry) return
 
     const cam = state.camera
     cam.getWorldDirection(camForward)
     if (data.prevCamZ === null) data.prevCamZ = cam.position.z
-    const speed = Math.abs(cam.position.z - data.prevCamZ) * 60 // approx per-second velocity
+    // true per-second velocity (Δz/Δt) — the old ×60 assumed a 60Hz monitor,
+    // so streaks were half-length on 120Hz displays
+    const speed = delta > 0 ? Math.abs(cam.position.z - data.prevCamZ) / delta : 0
     data.prevCamZ = cam.position.z
+
+    // exponential smoothing: streak length follows velocity with momentum,
+    // ramping in and decaying out instead of snapping (CLAUDE.md issue #2)
+    data.smoothedSpeed = THREE.MathUtils.damp(
+      data.smoothedSpeed, speed, SPEED_SMOOTHING, delta
+    )
 
     const positions = data.geometry.attributes.position.array
 
@@ -105,9 +114,12 @@ export default function HyperspaceStars({ active }) {
         perp.set(0, 0, 0)
       }
 
-      const streak = activeRef.current
-        ? Math.min(MIN_STREAK + (speed * STREAK_SCALE) / dist, MAX_STREAK)
-        : REST_STREAK_ANGULAR * dist
+      // purely velocity-driven, floored at the resting speck size. The old
+      // flat MIN_STREAK baseline is gone — 0.4 world units subtends a huge
+      // angle for a star that randomly lands near the camera, which is what
+      // made some stars render as lines when the camera was slow-but-active
+      const warpStreak = Math.min((data.smoothedSpeed * STREAK_SCALE) / dist, MAX_STREAK)
+      const streak = Math.max(REST_STREAK_ANGULAR * dist, warpStreak)
 
       half.copy(perp).multiplyScalar(streak / 2)
       p1.copy(star).sub(half)
