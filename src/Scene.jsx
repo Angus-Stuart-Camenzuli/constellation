@@ -34,6 +34,11 @@ const FREE_CAM = {
   maxZ: 320,     // far enough to see everything, not the starfield's edge
   boundsX: [-260, 205], // pan limits: node extents plus breathing room,
   boundsY: [-175, 155], // so nobody strands themselves in empty void
+  driftAmp: 3,       // world units of idle wander — a whisper, not a wobble
+  driftFreqX: 0.21,  // rad/s; the two frequencies are deliberately unrelated,
+  driftFreqY: 0.14,  // so the wander path never visibly repeats
+  driftIdleDelay: 2, // seconds of stillness before the drift breathes back in
+  driftDamp: 1.2,    // slow fade for the drift weight — it eases in, not pops
 }
 
 function CameraRig({ active, onComplete, promptRef, onPromptFar }) {
@@ -45,15 +50,27 @@ function CameraRig({ active, onComplete, promptRef, onPromptFar }) {
   // raw pixel deltas accumulate here between frames; useFrame drains them.
   // handlers never touch the camera — they don't know world units exist
   const drag = useRef({ active: false, lastX: 0, lastY: 0, dx: 0, dy: 0 })
+  // idle-drift state: w ramps 0→1 with stillness, back to 0 on any input
+  const driftRef = useRef({ w: 0, lastInput: 0 })
+  const reducedMotion = useRef(false)
+  useEffect(() => {
+    reducedMotion.current = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  }, [])
+
 
   // wheel → multiplicative zoom on the target. Multiplicative because zoom
   // perception is logarithmic: equal scroll should feel like equal zoom
   // whether you're close or far
   useEffect(() => {
+    const noteInput = () => {
+      driftRef.current.lastInput = performance.now() / 1000
+    }
+
     const onWheel = (e) => {
       const f = free.current
       if (!f) return // landing/dolly: wheel does nothing
       e.preventDefault()
+      noteInput()
       const oldZ = f.z
       const factor = Math.pow(FREE_CAM.zoomStep, e.deltaY / 100)
       const newZ = THREE.MathUtils.clamp(oldZ * factor, FREE_CAM.minZ, FREE_CAM.maxZ)
@@ -82,6 +99,7 @@ function CameraRig({ active, onComplete, promptRef, onPromptFar }) {
       d.active = true
       d.lastX = e.clientX
       d.lastY = e.clientY
+      noteInput()
     }
     const onMove = (e) => {
       const d = drag.current
@@ -90,6 +108,7 @@ function CameraRig({ active, onComplete, promptRef, onPromptFar }) {
       d.dy += e.clientY - d.lastY
       d.lastX = e.clientX
       d.lastY = e.clientY
+      noteInput()
     }
     const onUp = () => {
       drag.current.active = false
@@ -135,9 +154,24 @@ function CameraRig({ active, onComplete, promptRef, onPromptFar }) {
         d.dy = 0
       }
 
-      cam.position.x = THREE.MathUtils.damp(cam.position.x, f.x, FREE_CAM.damp, delta)
-      cam.position.y = THREE.MathUtils.damp(cam.position.y, f.y, FREE_CAM.damp, delta)
-      cam.position.z = THREE.MathUtils.damp(cam.position.z, f.z, FREE_CAM.damp, delta)
+      // the follow damps the base, never the camera directly
+      f.baseX = THREE.MathUtils.damp(f.baseX, f.x, FREE_CAM.damp, delta)
+      f.baseY = THREE.MathUtils.damp(f.baseY, f.y, FREE_CAM.damp, delta)
+      f.baseZ = THREE.MathUtils.damp(f.baseZ, f.z, FREE_CAM.damp, delta)
+
+      // drift weight: eases toward 1 after driftIdleDelay of stillness,
+      // toward 0 the instant the user touches anything
+      const dr = driftRef.current
+      const idle =
+        !drag.current.active &&
+        performance.now() / 1000 - dr.lastInput > FREE_CAM.driftIdleDelay
+      const wTarget = idle && !reducedMotion.current ? 1 : 0
+      dr.w = THREE.MathUtils.damp(dr.w, wTarget, FREE_CAM.driftDamp, delta)
+
+      const t = state.clock.elapsedTime
+      cam.position.x = f.baseX + dr.w * FREE_CAM.driftAmp * Math.sin(t * FREE_CAM.driftFreqX)
+      cam.position.y = f.baseY + dr.w * FREE_CAM.driftAmp * Math.cos(t * FREE_CAM.driftFreqY)
+      cam.position.z = f.baseZ
       return
     }
 
@@ -181,6 +215,9 @@ function CameraRig({ active, onComplete, promptRef, onPromptFar }) {
         x: state.camera.position.x,
         y: state.camera.position.y,
         z: state.camera.position.z,
+        baseX: state.camera.position.x,
+        baseY: state.camera.position.y,
+        baseZ: state.camera.position.z,
       }
       onComplete?.()
     }
