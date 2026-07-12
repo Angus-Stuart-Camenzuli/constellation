@@ -45,13 +45,17 @@ const proj = new THREE.Vector3()
 
 const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3)
 
-export default function ConstellationNodes() {
+export default function ConstellationNodes({ muted }) {
   // same house pattern as HyperspaceStars: JSX renders an empty group,
   // the real scene graph is built imperatively on mount and mutated
   // only inside useEffect/useFrame (keeps the purity linter happy)
   const groupRef = useRef()
   const dataRef = useRef({ sprites: [], edges: [], started: null })
   const labelRefs = useRef([])
+  const mutedRef = useRef(muted)
+  useEffect(() => {
+    mutedRef.current = muted
+  }, [muted])
 
   useEffect(() => {
     const group = groupRef.current
@@ -136,10 +140,16 @@ export default function ConstellationNodes() {
     window.addEventListener('pointerdown', onDown)
     window.addEventListener('pointerup', onUp)
 
+    const tick = new Audio('/audio/hover-tick.mp3')
+    tick.volume = 0.24
+    tick.preload = 'auto'
+
     dataRef.current = {
       sprites,
       edges,
       rings,
+      tick,
+      prevHovered: -1,
       hoverW: NODES.map(() => 0),
       hovered: -1,
       started: null,
@@ -203,6 +213,16 @@ export default function ConstellationNodes() {
       })
     }
     data.hovered = hovered // the click/dive slice will read this
+
+    // tick once per arrival on a star — not while resting on it
+    if (hovered !== data.prevHovered) {
+      if (hovered >= 0 && !mutedRef.current) {
+        data.tick.currentTime = 0
+        data.tick.play().catch(() => {})
+      }
+      data.prevHovered = hovered
+    }
+
     state.gl.domElement.style.cursor = hovered >= 0 ? 'pointer' : ''
 
     NODES.forEach((node, i) => {

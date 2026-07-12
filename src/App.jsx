@@ -144,6 +144,7 @@ function App() {
         promptRef={promptWrapperRef}
         onPromptFar={() => setPromptGone(true)}
         showNodes={dollyDone}
+        muted={muted}
       />
     {!promptGone && (
         <div className="prompt-wrapper" ref={promptWrapperRef}>

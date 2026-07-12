@@ -189,7 +189,7 @@ function CameraRig({ active, onComplete, promptRef, onPromptFar }) {
   return null
 }
 
-export default function Scene({ dollyActive, onDollyComplete, promptRef, onPromptFar, showNodes }) {
+export default function Scene({ dollyActive, onDollyComplete, promptRef, onPromptFar, showNodes, muted }) {
   return (
     <Canvas
       className="scene-canvas"
@@ -197,7 +197,7 @@ export default function Scene({ dollyActive, onDollyComplete, promptRef, onPromp
       gl={{ antialias: true }}
     >
       <HyperspaceStars warp={dollyActive} />
-      {showNodes && <ConstellationNodes />}
+      {showNodes && <ConstellationNodes  muted={muted}/>}
       <CameraRig
         active={dollyActive}
         onComplete={onDollyComplete}
