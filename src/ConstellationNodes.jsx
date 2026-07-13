@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react'
+import { useRef, useEffect, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
@@ -9,11 +9,16 @@ import * as THREE from 'three'
 // as a constellation, not an org chart. `size` scales the star: the origin
 // is a memory, slightly smaller than the artifacts it spawned.
 const NODES = [
-  { id: 'origin', label: 'YOUR PROMPT', position: [-190, -95, 0], parent: null, size: 0.75 },
-  { id: 'requirements', label: 'REQUIREMENTS', position: [-60, -10, 0], parent: 'origin', size: 1.2 },
-  { id: 'architecture', label: 'ARCHITECTURE', position: [95, 85, 10], parent: 'requirements', size: 1 },
-  { id: 'database', label: 'DATABASE', position: [135, -5, -15], parent: 'requirements', size: 1 },
-  { id: 'wireframes', label: 'WIREFRAMES', position: [75, -105, 8], parent: 'requirements', size: 1 },
+  { id: 'origin', label: 'YOUR PROMPT', position: [-190, -95, 0], parent: null, size: 0.75,
+    blurb: 'The idea this constellation grew from.', enterable: false },
+  { id: 'requirements', label: 'REQUIREMENTS', position: [-60, -10, 0], parent: 'origin', size: 1.2,
+    blurb: 'User stories, scope and acceptance criteria.' },
+  { id: 'architecture', label: 'ARCHITECTURE', position: [95, 85, 10], parent: 'requirements', size: 0.95,
+    blurb: 'System design, components and data flow.' },
+  { id: 'database', label: 'DATABASE', position: [135, -5, -15], parent: 'requirements', size: 0.95,
+    blurb: 'Schema, entities and relationships.' },
+  { id: 'wireframes', label: 'WIREFRAMES', position: [75, -105, 8], parent: 'requirements', size: 0.95,
+    blurb: 'Screen layouts and user flows.' },
 ]
 
 // edge list derived from each node's parent — [fromIndex, toIndex]
@@ -45,13 +50,19 @@ const proj = new THREE.Vector3()
 
 const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3)
 
-export default function ConstellationNodes({ muted }) {
+export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef  }) {
   // same house pattern as HyperspaceStars: JSX renders an empty group,
   // the real scene graph is built imperatively on mount and mutated
   // only inside useEffect/useFrame (keeps the purity linter happy)
   const groupRef = useRef()
   const dataRef = useRef({ sprites: [], edges: [], started: null })
   const labelRefs = useRef([])
+  // one panel serves all nodes: React state decides WHICH node it shows
+  // (rare change → setState is fine), the hover weight drives its opacity
+  // per-frame through a ref (no re-renders)
+  const [panelNode, setPanelNode] = useState(-1)
+  const panelNodeRef = useRef(-1)
+  const panelRef = useRef(null)
   const mutedRef = useRef(muted)
   useEffect(() => {
     mutedRef.current = muted
@@ -196,12 +207,16 @@ export default function ConstellationNodes({ muted }) {
       NODES.forEach((node, i) => {
         proj.copy(NODE_VECS[i]).project(state.camera)
         if (proj.z > 1) return // behind the camera
-        const sx = ((proj.x + 1) / 2) * width
-        const sy = ((1 - proj.y) / 2) * height
-        const dPx = Math.hypot(ptr.x - sx, ptr.y - sy)
         // the star's hot core, converted to on-screen pixels at its depth
         const dist = state.camera.position.distanceTo(NODE_VECS[i])
         const pxPerUnit = height / 2 / (dist * tanHalf)
+        // undo drift's screen-space shift: camera moving +x slides the star
+        // -x on screen, so adding driftX·ppu back reprojects it as the
+        // drift-free base camera would see it
+        const drift = driftOffsetRef?.current
+        const sx = ((proj.x + 1) / 2) * width + (drift ? drift.x * pxPerUnit : 0)
+        const sy = ((1 - proj.y) / 2) * height - (drift ? drift.y * pxPerUnit : 0)
+        const dPx = Math.hypot(ptr.x - sx, ptr.y - sy)
         const radius = Math.max(
           CORE_SIZE * (node.size ?? 1) * 0.35 * pxPerUnit,
           HOVER_MIN_RADIUS_PX
@@ -213,6 +228,19 @@ export default function ConstellationNodes({ muted }) {
       })
     }
     data.hovered = hovered // the click/dive slice will read this
+    if (hoverHoldRef) hoverHoldRef.current = hovered >= 0
+    // repoint the summary panel when a new star is hovered. It stays
+    // mounted on unhover so the fade-out can play
+    if (hovered >= 0 && hovered !== panelNodeRef.current) {
+      panelNodeRef.current = hovered
+      setPanelNode(hovered)
+    }
+    if (panelRef.current && panelNodeRef.current >= 0) {
+      const raw = data.hoverW[panelNodeRef.current]
+      const w = raw > 0.99 ? 1 : raw // snap: crisp text needs exact 1 / exact 0px
+      panelRef.current.style.opacity = w
+      panelRef.current.style.transform = `translateY(${(1 - w) * 8}px)`
+    }
 
     // tick once per arrival on a star — not while resting on it
     if (hovered !== data.prevHovered) {
@@ -298,6 +326,24 @@ export default function ConstellationNodes({ muted }) {
           </div>
         </Html>
       ))}
+      {panelNode >= 0 && (
+        <Html
+          position={[
+            NODES[panelNode].position[0] + 24,
+            NODES[panelNode].position[1] + 12,
+            NODES[panelNode].position[2],
+          ]}
+          style={{ pointerEvents: 'none' }}
+        >
+          <div className="node-summary" ref={panelRef}>
+            <div className="node-summary-title">{NODES[panelNode].label}</div>
+            <div className="node-summary-blurb">{NODES[panelNode].blurb}</div>
+            {NODES[panelNode].enterable !== false && (
+              <div className="node-summary-hint">Click to enter</div>
+            )}
+          </div>
+        </Html>
+      )}
     </group>
   )
 }
