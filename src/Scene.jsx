@@ -41,7 +41,7 @@ const FREE_CAM = {
   driftDamp: 1.2,    // slow fade for the drift weight — it eases in, not pops
 }
 
-function CameraRig({ active, onComplete, promptRef, onPromptFar }) {
+function CameraRig({ active, onComplete, promptRef, onPromptFar, holdDriftRef, driftOffsetRef }) {
   const elapsed = useRef(0)
   const done = useRef(false)
   const promptGone = useRef(false)
@@ -162,16 +162,20 @@ function CameraRig({ active, onComplete, promptRef, onPromptFar }) {
       // drift weight: eases toward 1 after driftIdleDelay of stillness,
       // toward 0 the instant the user touches anything
       const dr = driftRef.current
-      const idle =
-        !drag.current.active &&
-        performance.now() / 1000 - dr.lastInput > FREE_CAM.driftIdleDelay
-      const wTarget = idle && !reducedMotion.current ? 1 : 0
+      const idle = !drag.current.active && performance.now() / 1000 - dr.lastInput > FREE_CAM.driftIdleDelay
+      const wTarget = idle && !holdDriftRef?.current && !reducedMotion.current ? 1 : 0
       dr.w = THREE.MathUtils.damp(dr.w, wTarget, FREE_CAM.driftDamp, delta)
 
-      const t = state.clock.elapsedTime
-      cam.position.x = f.baseX + dr.w * FREE_CAM.driftAmp * Math.sin(t * FREE_CAM.driftFreqX)
-      cam.position.y = f.baseY + dr.w * FREE_CAM.driftAmp * Math.cos(t * FREE_CAM.driftFreqY)
+            const t = state.clock.elapsedTime
+      const driftX = dr.w * FREE_CAM.driftAmp * Math.sin(t * FREE_CAM.driftFreqX)
+      const driftY = dr.w * FREE_CAM.driftAmp * Math.cos(t * FREE_CAM.driftFreqY)
+      cam.position.x = f.baseX + driftX
+      cam.position.y = f.baseY + driftY
       cam.position.z = f.baseZ
+      if (driftOffsetRef) {
+        driftOffsetRef.current.x = driftX
+        driftOffsetRef.current.y = driftY
+      }
       return
     }
 
@@ -227,6 +231,13 @@ function CameraRig({ active, onComplete, promptRef, onPromptFar }) {
 }
 
 export default function Scene({ dollyActive, onDollyComplete, promptRef, onPromptFar, showNodes, muted }) {
+  // shared flag: ConstellationNodes writes "a node is hovered", CameraRig
+  // reads it to hold the idle drift — reading deserves a still camera
+  const hoverHoldRef = useRef(false)
+  // CameraRig publishes its current drift offset here; hover detection
+  // subtracts it — hover is tested against the drift-free camera, so
+  // camera wander can never flap the hover state (no feedback loop)
+  const driftOffsetRef = useRef({ x: 0, y: 0 })
   return (
     <Canvas
       className="scene-canvas"
@@ -234,12 +245,19 @@ export default function Scene({ dollyActive, onDollyComplete, promptRef, onPromp
       gl={{ antialias: true }}
     >
       <HyperspaceStars warp={dollyActive} />
-      {showNodes && <ConstellationNodes  muted={muted}/>}
+      {showNodes && (
+        <ConstellationNodes
+          muted={muted}
+          hoverHoldRef={hoverHoldRef}
+          driftOffsetRef={driftOffsetRef}
+        />
+      )}
       <CameraRig
         active={dollyActive}
         onComplete={onDollyComplete}
         promptRef={promptRef}
         onPromptFar={onPromptFar}
+        holdDriftRef={hoverHoldRef}
       />
     </Canvas>
   )
