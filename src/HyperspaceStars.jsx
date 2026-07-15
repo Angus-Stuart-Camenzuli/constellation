@@ -2,7 +2,12 @@ import { useRef, useEffect } from 'react'
 import { useFrame } from '@react-three/fiber'
 import * as THREE from 'three'
 
-const STAR_COUNT = 1400
+// two skies: the constellation's, and the quieter one inside a node.
+// switching variant re-seeds the whole field — done behind the veil flash
+const VARIANTS = {
+  galaxy: { count: 1400, opacity: 0.85 },
+  interior: { count: 450, opacity: 0.5 },
+}
 const FIELD_MIN_RADIUS = 40
 const FIELD_MAX_RADIUS = 300
 
@@ -35,7 +40,7 @@ const half = new THREE.Vector3()
 const p1 = new THREE.Vector3()
 const p2 = new THREE.Vector3()
 
-export default function HyperspaceStars({ warp }) {
+export default function HyperspaceStars({ warp, variant = 'galaxy' }) {
   // groupRef is only ever touched inside useEffect/useFrame, never read during render
   const groupRef = useRef()
   // everything mutable (geometry, star data, camera-speed state) lives here,
@@ -54,11 +59,12 @@ export default function HyperspaceStars({ warp }) {
 
   useEffect(() => {
     const group = groupRef.current
+    const cfg = VARIANTS[variant] ?? VARIANTS.galaxy
 
-    const starPositions = Array.from({ length: STAR_COUNT }, () =>
+    const starPositions = Array.from({ length: cfg.count }, () =>
       randomPointInShell(FIELD_MIN_RADIUS, FIELD_MAX_RADIUS)
     )
-    const positions = new Float32Array(STAR_COUNT * 2 * 3)
+    const positions = new Float32Array(cfg.count * 2 * 3)
 
     const geometry = new THREE.BufferGeometry()
     geometry.setAttribute('position', new THREE.BufferAttribute(positions, 3))
@@ -66,7 +72,7 @@ export default function HyperspaceStars({ warp }) {
     const material = new THREE.LineBasicMaterial({
       color: '#ffffff',
       transparent: true,
-      opacity: 0.85,
+      opacity: cfg.opacity,
     })
 
     const line = new THREE.LineSegments(geometry, material)
@@ -79,7 +85,7 @@ export default function HyperspaceStars({ warp }) {
       geometry.dispose()
       material.dispose()
     }
-  }, [])
+  }, [variant])
 
   useFrame((state, delta) => {
     const data = dataRef.current
@@ -104,7 +110,7 @@ export default function HyperspaceStars({ warp }) {
 
     const positions = data.geometry.attributes.position.array
 
-    for (let i = 0; i < STAR_COUNT; i++) {
+    for (let i = 0; i < data.starPositions.length; i++) {
       const star = data.starPositions[i]
 
       toCam.subVectors(star, cam.position)

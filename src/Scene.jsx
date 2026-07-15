@@ -2,7 +2,9 @@ import { useRef, useEffect } from 'react'
 import { Canvas, useFrame } from '@react-three/fiber'
 import HyperspaceStars from './HyperspaceStars'
 import ConstellationNodes from './ConstellationNodes'
+import { NODES } from './constellationData'
 import * as THREE from 'three'
+import NodeInterior from './NodeInterior'
 
 // slow ignition → violent mid-jump → smooth settle. easeOutCubic had its
 // peak velocity at frame zero (instant warp); this gives the launch a beat
@@ -24,6 +26,26 @@ const PROMPT_VANISH_SCALE = 0.05 // below this on-screen scale, unmount the prom
 const PROMPT_FADE_BOOST = 2 // opacity = scale × this — solid until ~half size, then fades out
 const PROMPT_MAX_BLUR = 2.5 // px of blur once fully receded — melts the crisp UI edges
 const PROMPT_MAX_GLOW = 2 // extra brightness once fully receded — small + bright + blurred = star
+// enter/exit flight: scripted, cinematic — the intro dolly's DNA.
+// standoff = where the camera parks inside the node's world
+const FLIGHT = {
+  duration: 1.7,
+  standoff: 70,
+  ease: easeInOutCubic,
+}
+
+// camera limits inside a node, relative to that node's z. Zooming past
+// maxZ by exitOvershoot is read as intent: "take me back out"
+const INTERIOR_CAM = {
+  minZ: 35,
+  maxZ: 130,
+  exitOvershoot: 12,
+  boundsX: 110,
+  boundsY: 70,
+}
+// constellation: a star within this many world units of the zoom cursor
+// point when you hit the zoom floor auto-commits the entry
+const AUTO_ENTER_RADIUS = 45
 
 // free camera (post-dolly): inputs never move the camera directly — they
 // write to a target, and the camera glides toward it every frame
@@ -41,7 +63,48 @@ const FREE_CAM = {
   driftDamp: 1.2,    // slow fade for the drift weight — it eases in, not pops
 }
 
-function CameraRig({ active, onComplete, promptRef, onPromptFar, holdDriftRef, driftOffsetRef }) {
+function CameraRig({
+  active,
+  onComplete,
+  promptRef,
+  onPromptFar,
+  holdDriftRef,
+  driftOffsetRef,
+  diveNodeId,
+  veilRef,
+  onDiveMidpoint,
+  onAutoEnter,
+  onExitRequest,
+}) {
+  const divingRef = useRef(false)
+  const savedView = useRef(null)
+  // effects record INTENT only — a pending command, drained by useFrame.
+  // Mutating free.current inside an effect makes the compiler freeze it,
+  // which breaks every other mutation site (pan, zoom, handoff)
+  const diveCmd = useRef(null)
+  const flight = useRef(null)
+
+  // active camera limits — constellation by default, swapped to a board-
+  // local box when an enter flight completes, restored on exit
+  const boundsRef = useRef({
+    x: FREE_CAM.boundsX,
+    y: FREE_CAM.boundsY,
+    minZ: FREE_CAM.minZ,
+    maxZ: FREE_CAM.maxZ,
+  })
+  // callback mirrors (house pattern: the mount-effect handlers must not
+  // capture stale props)
+  const onAutoEnterRef = useRef(onAutoEnter)
+  const onExitRequestRef = useRef(onExitRequest)
+  useEffect(() => {
+    onAutoEnterRef.current = onAutoEnter
+    onExitRequestRef.current = onExitRequest
+  }, [onAutoEnter, onExitRequest])
+
+  useEffect(() => {
+    divingRef.current = !!diveNodeId
+    diveCmd.current = diveNodeId ? { enter: diveNodeId } : { exit: true }
+  }, [diveNodeId])
   const elapsed = useRef(0)
   const done = useRef(false)
   const promptGone = useRef(false)
@@ -68,32 +131,50 @@ function CameraRig({ active, onComplete, promptRef, onPromptFar, holdDriftRef, d
 
     const onWheel = (e) => {
       const f = free.current
-      if (!f) return // landing/dolly: wheel does nothing
+      if (!f || flight.current) return // only flights lock the wheel now
       e.preventDefault()
       noteInput()
+      const B = boundsRef.current
       const oldZ = f.z
       const factor = Math.pow(FREE_CAM.zoomStep, e.deltaY / 100)
-      const newZ = THREE.MathUtils.clamp(oldZ * factor, FREE_CAM.minZ, FREE_CAM.maxZ)
+      const rawZ = oldZ * factor
+      const newZ = THREE.MathUtils.clamp(rawZ, B.minZ, B.maxZ)
+
+      // inside a node, pushing well past the far limit = "take me out"
+      if (divingRef.current && rawZ > B.maxZ + INTERIOR_CAM.exitOvershoot) {
+        onExitRequestRef.current?.()
+        return
+      }
 
       // zoom toward the cursor: shift the target so the world point under
-      // the pointer stays under it. Shift = cursor's offset from center
-      // (ndc, -1..1) × how much the visible half-extent changed (Δz × tan)
+      // the pointer stays under it
       const tanHalf = Math.tan((DOLLY.endFov * Math.PI) / 360)
       const aspect = window.innerWidth / window.innerHeight
       const ndcX = (e.clientX / window.innerWidth) * 2 - 1
       const ndcY = -((e.clientY / window.innerHeight) * 2 - 1)
       f.x = THREE.MathUtils.clamp(
-        f.x + ndcX * tanHalf * aspect * (oldZ - newZ),
-        FREE_CAM.boundsX[0], FREE_CAM.boundsX[1]
+        f.x + ndcX * tanHalf * aspect * (oldZ - newZ), B.x[0], B.x[1]
       )
       f.y = THREE.MathUtils.clamp(
-        f.y + ndcY * tanHalf * (oldZ - newZ),
-        FREE_CAM.boundsY[0], FREE_CAM.boundsY[1]
+        f.y + ndcY * tanHalf * (oldZ - newZ), B.y[0], B.y[1]
       )
       f.z = newZ
+
+      // constellation: grinding against the zoom floor while aimed at a
+      // star = enter it. The cursor's world point picks the target
+      if (!divingRef.current && rawZ < FREE_CAM.minZ) {
+        const wx = f.x + ndcX * tanHalf * aspect * newZ
+        const wy = f.y + ndcY * tanHalf * newZ
+        const target = NODES.find(
+          (n) =>
+            n.enterable !== false &&
+            Math.hypot(n.position[0] - wx, n.position[1] - wy) < AUTO_ENTER_RADIUS
+        )
+        if (target) onAutoEnterRef.current?.(target.id)
+      }
     }
     const onDown = (e) => {
-      if (!free.current) return
+      if (!free.current || flight.current) return
       if (e.target.closest('button, input')) return // UI keeps its clicks
       const d = drag.current
       d.active = true
@@ -135,6 +216,83 @@ function CameraRig({ active, onComplete, promptRef, onPromptFar, holdDriftRef, d
       const f = free.current
       const cam = state.camera
 
+      // scripted enter/exit flight — while active it owns the camera outright
+      const fl = flight.current
+      if (fl) {
+        fl.t = Math.min(fl.t + delta / FLIGHT.duration, 1)
+        const e = FLIGHT.ease(fl.t)
+        f.baseX = fl.from.x + (fl.to.x - fl.from.x) * e
+        f.baseY = fl.from.y + (fl.to.y - fl.from.y) * e
+        f.baseZ = fl.from.z + (fl.to.z - fl.from.z) * e
+        cam.position.set(f.baseX, f.baseY, f.baseZ)
+
+        // veil: bell curve peaking mid-flight — the flash that masks the
+        // world swap (same per-frame inline-style technique as the prompt)
+        if (veilRef?.current) {
+          veilRef.current.style.opacity = Math.pow(
+            Math.max(0, Math.sin(Math.PI * fl.t)), 5
+          )
+        }
+        // midpoint: the world swaps sides behind the flash
+        if (!fl.midpointFired && fl.t >= 0.5) {
+          fl.midpointFired = true
+          onDiveMidpoint?.(fl.mode === 'enter')
+        }
+        if (fl.t >= 1) {
+          f.x = fl.to.x
+          f.y = fl.to.y
+          f.z = fl.to.z
+          flight.current = null
+          if (veilRef?.current) veilRef.current.style.opacity = 0
+          // arriving swaps the camera's playground
+          if (fl.mode === 'enter' && fl.node) {
+            const [nx, ny, nz] = fl.node.position
+            boundsRef.current = {
+              x: [nx - INTERIOR_CAM.boundsX, nx + INTERIOR_CAM.boundsX],
+              y: [ny - INTERIOR_CAM.boundsY, ny + INTERIOR_CAM.boundsY],
+              minZ: nz + INTERIOR_CAM.minZ,
+              maxZ: nz + INTERIOR_CAM.maxZ,
+            }
+          } else {
+            boundsRef.current = {
+              x: FREE_CAM.boundsX,
+              y: FREE_CAM.boundsY,
+              minZ: FREE_CAM.minZ,
+              maxZ: FREE_CAM.maxZ,
+            }
+          }
+        }
+        return
+      }
+
+      // drain any pending dive command → launch a flight
+      const cmd = diveCmd.current
+      if (cmd) {
+        diveCmd.current = null
+        if (cmd.enter) {
+          const node = NODES.find((n) => n.id === cmd.enter)
+          if (node) {
+            savedView.current = { x: f.x, y: f.y, z: f.z }
+            flight.current = {
+              mode: 'enter', t: 0, midpointFired: false, node,
+              from: { x: f.baseX, y: f.baseY, z: f.baseZ },
+              to: {
+                x: node.position[0],
+                y: node.position[1],
+                z: node.position[2] + FLIGHT.standoff,
+              },
+            }
+          }
+        } else if (savedView.current) {
+          flight.current = {
+            mode: 'exit', t: 0, midpointFired: false,
+            from: { x: f.baseX, y: f.baseY, z: f.baseZ },
+            to: { ...savedView.current },
+          }
+          savedView.current = null
+        }
+      }
+
       // drain accumulated drag pixels → world units. worldPerPixel depends
       // on current distance and fov, so pan speed auto-scales with zoom
       const d = drag.current
@@ -144,12 +302,9 @@ function CameraRig({ active, onComplete, promptRef, onPromptFar, holdDriftRef, d
           state.size.height
         // grab the sky: content follows the hand, so the camera moves opposite.
         // screen y grows downward, world y grows upward — hence the sign flip
-        f.x = THREE.MathUtils.clamp(
-          f.x - d.dx * worldPerPixel, FREE_CAM.boundsX[0], FREE_CAM.boundsX[1]
-        )
-        f.y = THREE.MathUtils.clamp(
-          f.y + d.dy * worldPerPixel, FREE_CAM.boundsY[0], FREE_CAM.boundsY[1]
-        )
+        const B = boundsRef.current
+        f.x = THREE.MathUtils.clamp(f.x - d.dx * worldPerPixel, B.x[0], B.x[1])
+        f.y = THREE.MathUtils.clamp(f.y + d.dy * worldPerPixel, B.y[0], B.y[1])
         d.dx = 0
         d.dy = 0
       }
@@ -163,10 +318,13 @@ function CameraRig({ active, onComplete, promptRef, onPromptFar, holdDriftRef, d
       // toward 0 the instant the user touches anything
       const dr = driftRef.current
       const idle = !drag.current.active && performance.now() / 1000 - dr.lastInput > FREE_CAM.driftIdleDelay
-      const wTarget = idle && !holdDriftRef?.current && !reducedMotion.current ? 1 : 0
+      const wTarget =
+        idle && !holdDriftRef?.current && !divingRef.current && !reducedMotion.current
+          ? 1
+          : 0
       dr.w = THREE.MathUtils.damp(dr.w, wTarget, FREE_CAM.driftDamp, delta)
 
-            const t = state.clock.elapsedTime
+      const t = state.clock.elapsedTime
       const driftX = dr.w * FREE_CAM.driftAmp * Math.sin(t * FREE_CAM.driftFreqX)
       const driftY = dr.w * FREE_CAM.driftAmp * Math.cos(t * FREE_CAM.driftFreqY)
       cam.position.x = f.baseX + driftX
@@ -230,7 +388,20 @@ function CameraRig({ active, onComplete, promptRef, onPromptFar, holdDriftRef, d
   return null
 }
 
-export default function Scene({ dollyActive, onDollyComplete, promptRef, onPromptFar, showNodes, muted }) {
+export default function Scene({
+  dollyActive,
+  onDollyComplete,
+  promptRef,
+  onPromptFar,
+  showNodes,
+  muted,
+  diveNodeId,
+  onEnterNode,
+  veilRef,
+  onDiveMidpoint,
+  inWorld,
+  onExitNode,
+}) {
   // shared flag: ConstellationNodes writes "a node is hovered", CameraRig
   // reads it to hold the idle drift — reading deserves a still camera
   const hoverHoldRef = useRef(false)
@@ -244,20 +415,31 @@ export default function Scene({ dollyActive, onDollyComplete, promptRef, onPromp
       camera={{ position: [0, 0, DOLLY.startZ], fov: DOLLY.startFov }}
       gl={{ antialias: true }}
     >
-      <HyperspaceStars warp={dollyActive} />
+      <HyperspaceStars warp={dollyActive} variant={inWorld ? 'interior' : 'galaxy'} />
       {showNodes && (
         <ConstellationNodes
           muted={muted}
           hoverHoldRef={hoverHoldRef}
           driftOffsetRef={driftOffsetRef}
+          onEnterNode={onEnterNode}
+          interactive={!diveNodeId}
+          visible={!inWorld}
         />
       )}
+
+      {inWorld && diveNodeId && <NodeInterior nodeId={diveNodeId} />}
+
       <CameraRig
         active={dollyActive}
         onComplete={onDollyComplete}
         promptRef={promptRef}
         onPromptFar={onPromptFar}
         holdDriftRef={hoverHoldRef}
+        veilRef={veilRef}
+        onDiveMidpoint={onDiveMidpoint}
+        diveNodeId={diveNodeId}
+        onAutoEnter={onEnterNode}
+        onExitRequest={onExitNode}
       />
     </Canvas>
   )
