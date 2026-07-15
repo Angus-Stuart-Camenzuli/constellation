@@ -349,3 +349,57 @@
   text-transform: uppercase;
   color: rgba(255, 255, 255, 0.35);
 }
+
+/* ---------- Node interior (canvas board shell) ---------- */
+
+.interior {
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: flex;
+  flex-direction: column;
+  justify-content: space-between;
+  padding: 28px 36px;
+  pointer-events: none; /* board contents will opt back in next slice */
+
+  opacity: 0;
+  animation: interior-in 0.6s ease forwards 0.7s; /* waits out the dive flight */
+}
+
+@keyframes interior-in {
+  to {
+    opacity: 1;
+  }
+}
+
+.interior-breadcrumb,
+.interior-hint,
+.interior-placeholder {
+  font-size: 11px;
+  font-weight: 300;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+}
+
+.interior-breadcrumb {
+  display: flex;
+  gap: 10px;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.crumb-dim {
+  color: rgba(255, 255, 255, 0.4);
+}
+
+.crumb-sep {
+  color: rgba(255, 255, 255, 0.25);
+}
+
+.interior-placeholder {
+  align-self: center;
+  color: rgba(255, 255, 255, 0.3);
+}
+
+.interior-hint {
+  color: rgba(255, 255, 255, 0.3);
+}

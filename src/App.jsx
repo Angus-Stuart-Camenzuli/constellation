@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react'
 import Scene from './Scene'
+import { NODES } from './constellationData'
 import './App.css'
 
 const FULL_PLACEHOLDER = "What would you like to build?"
@@ -16,6 +17,7 @@ function App() {
   const [dollying, setDollying] = useState(false) // camera dolly — starts on Enter, independent of the CSS phase timeout
   const [dollyDone, setDollyDone] = useState(false)
   const [promptGone, setPromptGone] = useState(false) // flips once Scene's real per-frame scale shrinks the prompt below PROMPT_VANISH_SCALE
+  const [insideNode, setInsideNode] = useState(null) // node id while dived into an artifact, else null
 
   const promptWrapperRef = useRef(null)
 
@@ -120,6 +122,21 @@ function App() {
     }
   }, [])
 
+  const enterNode = (id) => {
+    whooshRef.current?.play().catch(() => {})
+    setInsideNode(id)
+  }
+
+  // ESC backs out of the interior
+  useEffect(() => {
+    if (!insideNode) return
+    const onKey = (e) => {
+      if (e.key === 'Escape') setInsideNode(null)
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [insideNode])
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && value.trim().length > 0 && phase === 'landing') {
       whooshRef.current?.play().catch(() => {})
@@ -145,6 +162,8 @@ function App() {
         onPromptFar={() => setPromptGone(true)}
         showNodes={dollyDone}
         muted={muted}
+        diveNodeId={insideNode}
+        onEnterNode={enterNode}
       />
     {!promptGone && (
         <div className="prompt-wrapper" ref={promptWrapperRef}>
@@ -160,6 +179,18 @@ function App() {
             placeholder={displayPlaceholder}
           />
           <div className="status-label">Awaiting input</div>
+        </div>
+      )}
+
+      {insideNode && (
+        <div className="interior">
+          <div className="interior-breadcrumb">
+            <span className="crumb-dim">Constellation</span>
+            <span className="crumb-sep">/</span>
+            <span>{NODES.find((n) => n.id === insideNode)?.label}</span>
+          </div>
+          <div className="interior-placeholder">Canvas board — next slice</div>
+          <div className="interior-hint">esc — back to constellation</div>
         </div>
       )}
 

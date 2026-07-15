@@ -2,31 +2,7 @@ import { useRef, useEffect, useState } from 'react'
 import { useFrame } from '@react-three/fiber'
 import { Html } from '@react-three/drei'
 import * as THREE from 'three'
-
-// Tree: prompt → requirements → everything else (requirements drive the
-// design phase). Laid out as a diagonal flow — idea enters lower-left,
-// work cascades up-right — with irregular angles and z-depth so it reads
-// as a constellation, not an org chart. `size` scales the star: the origin
-// is a memory, slightly smaller than the artifacts it spawned.
-export const NODES = [
-  { id: 'origin', label: 'YOUR PROMPT', position: [-190, -95, 0], parent: null, size: 0.75,
-    blurb: 'The idea this constellation grew from.', enterable: false },
-  { id: 'requirements', label: 'REQUIREMENTS', position: [-60, -10, 0], parent: 'origin', size: 1.2,
-    blurb: 'User stories, scope and acceptance criteria.' },
-  { id: 'architecture', label: 'ARCHITECTURE', position: [95, 85, 10], parent: 'requirements', size: 0.95,
-    blurb: 'System design, components and data flow.' },
-  { id: 'database', label: 'DATABASE', position: [135, -5, -15], parent: 'requirements', size: 0.95,
-    blurb: 'Schema, entities and relationships.' },
-  { id: 'wireframes', label: 'WIREFRAMES', position: [75, -105, 8], parent: 'requirements', size: 0.95,
-    blurb: 'Screen layouts and user flows.' },
-]
-
-// edge list derived from each node's parent — [fromIndex, toIndex]
-const INDEX_BY_ID = Object.fromEntries(NODES.map((n, i) => [n.id, i]))
-const EDGES = NODES.filter((n) => n.parent).map((n) => [
-  INDEX_BY_ID[n.parent],
-  INDEX_BY_ID[n.id],
-])
+import { NODES, EDGES } from './constellationData'
 
 const BIRTH_STAGGER = 0.45 // seconds between each star igniting
 const BIRTH_DURATION = 0.9 // ignition ramp length per star
@@ -50,7 +26,7 @@ const proj = new THREE.Vector3()
 
 const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3)
 
-export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef  }) {
+export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef, onEnterNode, interactive = true }) {
   // same house pattern as HyperspaceStars: JSX renders an empty group,
   // the real scene graph is built imperatively on mount and mutated
   // only inside useEffect/useFrame (keeps the purity linter happy)
@@ -64,9 +40,13 @@ export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef
   const panelNodeRef = useRef(-1)
   const panelRef = useRef(null)
   const mutedRef = useRef(muted)
+  const interactiveRef = useRef(interactive)
+  const onEnterNodeRef = useRef(onEnterNode)
   useEffect(() => {
     mutedRef.current = muted
-  }, [muted])
+    interactiveRef.current = interactive
+    onEnterNodeRef.current = onEnterNode
+  }, [muted, interactive, onEnterNode])
 
   useEffect(() => {
     const group = groupRef.current
@@ -135,17 +115,33 @@ export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef
 
     // pointer state banked into a plain object; useFrame does all the math.
     // hover is suppressed while a button is down so drags don't flicker it
-    const pointer = { x: 0, y: 0, has: false, down: false }
+    const pointer = { x: 0, y: 0, has: false, down: false, downX: 0, downY: 0, downHovered: -1 }
     const onMove = (e) => {
       pointer.x = e.clientX
       pointer.y = e.clientY
       pointer.has = true
     }
-    const onDown = () => {
+    const onDown = (e) => {
       pointer.down = true
+      pointer.downX = e.clientX
+      pointer.downY = e.clientY
+      // capture the hover target at press time — hover detection pauses
+      // while the button is down, so data.hovered is already -1 by release
+      pointer.downHovered = dataRef.current.hovered
     }
-    const onUp = () => {
+    const onUp = (e) => {
       pointer.down = false
+      // a click is a press that didn't travel — drags never enter nodes
+      const moved = Math.hypot(e.clientX - pointer.downX, e.clientY - pointer.downY)
+      // const data = dataRef.current
+      if (
+        moved < 6 &&
+        interactiveRef.current &&
+        pointer.downHovered >= 0 &&
+        NODES[pointer.downHovered].enterable !== false
+      ) {
+        onEnterNodeRef.current?.(NODES[pointer.downHovered].id)
+      }
     }
     window.addEventListener('pointermove', onMove)
     window.addEventListener('pointerdown', onDown)
@@ -201,7 +197,7 @@ export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef
     const { width, height } = state.size
     const ptr = data.pointer
     let hovered = -1
-    if (ptr.has && !ptr.down) {
+    if (interactiveRef.current && ptr.has && !ptr.down) {
       const tanHalf = Math.tan((state.camera.fov * Math.PI) / 360)
       let best = Infinity
       NODES.forEach((node, i) => {
@@ -231,7 +227,7 @@ export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef
     if (hoverHoldRef) hoverHoldRef.current = hovered >= 0
     // repoint the summary panel when a new star is hovered. It stays
     // mounted on unhover so the fade-out can play
-    if (hovered >= 0 && hovered !== panelNodeRef.current) {
+    if (interactiveRef.current && hovered === -1 && data.prevHovered >= 0 && panelRef.current) {
       panelNodeRef.current = hovered
       setPanelNode(hovered)
     }
