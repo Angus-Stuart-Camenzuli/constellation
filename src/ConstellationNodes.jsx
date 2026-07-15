@@ -8,7 +8,7 @@ import * as THREE from 'three'
 // work cascades up-right — with irregular angles and z-depth so it reads
 // as a constellation, not an org chart. `size` scales the star: the origin
 // is a memory, slightly smaller than the artifacts it spawned.
-const NODES = [
+export const NODES = [
   { id: 'origin', label: 'YOUR PROMPT', position: [-190, -95, 0], parent: null, size: 0.75,
     blurb: 'The idea this constellation grew from.', enterable: false },
   { id: 'requirements', label: 'REQUIREMENTS', position: [-60, -10, 0], parent: 'origin', size: 1.2,
