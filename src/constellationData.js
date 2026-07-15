@@ -13,6 +13,8 @@ export const NODES = [
     blurb: 'Schema, entities and relationships.' },
   { id: 'wireframes', label: 'WIREFRAMES', position: [75, -105, 8], parent: 'requirements', size: 0.95,
     blurb: 'Screen layouts and user flows.' },
+  { id: 'planning', label: 'PLANNING', position: [40, 120, -5], parent: 'requirements', size: 0.95,
+    blurb: 'Timeline, milestones and effort planning.' },
 ]
 
 // edge list derived from each node's parent — [fromIndex, toIndex]
@@ -46,5 +48,11 @@ export const BOARDS = {
     { title: 'LANDING', lines: 3, w: 190, pos: [-72, 24] },
     { title: 'CONSTELLATION VIEW', lines: 3, w: 210, pos: [52, 40] },
     { title: 'NODE DETAIL', lines: 3, w: 180, pos: [-8, -46] },
+  ],
+
+  planning: [
+    { title: 'TIMELINE', lines: 4, w: 220, pos: [-62, 24] },
+    { title: 'MILESTONES', lines: 3, w: 180, pos: [58, 40] },
+    { title: 'RISKS', lines: 3, w: 170, pos: [-6, -44] },
   ],
 }

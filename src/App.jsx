@@ -130,7 +130,7 @@ function App() {
     whooshRef.current?.play().catch(() => {})
     setInsideNode(id)
   }
-
+  const leaveNode = () => setInsideNode(null)
   // ESC backs out of the interior
   useEffect(() => {
     if (!insideNode) return
@@ -171,6 +171,7 @@ function App() {
         veilRef={veilRef}
         onDiveMidpoint={handleDiveMidpoint}
         inWorld={inWorld}
+        onExitNode={leaveNode}
       />
     {!promptGone && (
         <div className="prompt-wrapper" ref={promptWrapperRef}>
