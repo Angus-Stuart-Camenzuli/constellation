@@ -4,6 +4,7 @@ import HyperspaceStars from './HyperspaceStars'
 import ConstellationNodes from './ConstellationNodes'
 import { NODES } from './constellationData'
 import * as THREE from 'three'
+import NodeInterior from './NodeInterior'
 
 // slow ignition → violent mid-jump → smooth settle. easeOutCubic had its
 // peak velocity at frame zero (instant warp); this gives the launch a beat
@@ -25,7 +26,13 @@ const PROMPT_VANISH_SCALE = 0.05 // below this on-screen scale, unmount the prom
 const PROMPT_FADE_BOOST = 2 // opacity = scale × this — solid until ~half size, then fades out
 const PROMPT_MAX_BLUR = 2.5 // px of blur once fully receded — melts the crisp UI edges
 const PROMPT_MAX_GLOW = 2 // extra brightness once fully receded — small + bright + blurred = star
-const DIVE_STANDOFF = 26
+// enter/exit flight: scripted, cinematic — the intro dolly's DNA.
+// standoff = where the camera parks inside the node's world
+const FLIGHT = {
+  duration: 1.7,
+  standoff: 70,
+  ease: easeInOutCubic,
+}
 
 // free camera (post-dolly): inputs never move the camera directly — they
 // write to a target, and the camera glides toward it every frame
@@ -51,6 +58,9 @@ function CameraRig({
   holdDriftRef,
   driftOffsetRef,
   diveNodeId,
+  veilRef,
+  onDiveMidpoint,
+  
 }) {
   const divingRef = useRef(false)
   const savedView = useRef(null)
@@ -58,6 +68,7 @@ function CameraRig({
   // Mutating free.current inside an effect makes the compiler freeze it,
   // which breaks every other mutation site (pan, zoom, handoff)
   const diveCmd = useRef(null)
+  const flight = useRef(null)
   useEffect(() => {
     divingRef.current = !!diveNodeId
     diveCmd.current = diveNodeId ? { enter: diveNodeId } : { exit: true }
@@ -155,7 +166,39 @@ function CameraRig({
       const f = free.current
       const cam = state.camera
 
-      // drain any pending dive command before regular inputs
+      // scripted enter/exit flight — while active it owns the camera outright
+      const fl = flight.current
+      if (fl) {
+        fl.t = Math.min(fl.t + delta / FLIGHT.duration, 1)
+        const e = FLIGHT.ease(fl.t)
+        f.baseX = fl.from.x + (fl.to.x - fl.from.x) * e
+        f.baseY = fl.from.y + (fl.to.y - fl.from.y) * e
+        f.baseZ = fl.from.z + (fl.to.z - fl.from.z) * e
+        cam.position.set(f.baseX, f.baseY, f.baseZ)
+
+        // veil: bell curve peaking mid-flight — the flash that masks the
+        // world swap (same per-frame inline-style technique as the prompt)
+        if (veilRef?.current) {
+          veilRef.current.style.opacity = Math.pow(
+            Math.max(0, Math.sin(Math.PI * fl.t)), 5
+          )
+        }
+        // midpoint: the world swaps sides behind the flash
+        if (!fl.midpointFired && fl.t >= 0.5) {
+          fl.midpointFired = true
+          onDiveMidpoint?.(fl.mode === 'enter')
+        }
+        if (fl.t >= 1) {
+          f.x = fl.to.x
+          f.y = fl.to.y
+          f.z = fl.to.z
+          flight.current = null
+          if (veilRef?.current) veilRef.current.style.opacity = 0
+        }
+        return
+      }
+
+      // drain any pending dive command → launch a flight
       const cmd = diveCmd.current
       if (cmd) {
         diveCmd.current = null
@@ -163,14 +206,22 @@ function CameraRig({
           const node = NODES.find((n) => n.id === cmd.enter)
           if (node) {
             savedView.current = { x: f.x, y: f.y, z: f.z }
-            f.x = node.position[0]
-            f.y = node.position[1]
-            f.z = node.position[2] + DIVE_STANDOFF
+            flight.current = {
+              mode: 'enter', t: 0, midpointFired: false,
+              from: { x: f.baseX, y: f.baseY, z: f.baseZ },
+              to: {
+                x: node.position[0],
+                y: node.position[1],
+                z: node.position[2] + FLIGHT.standoff,
+              },
+            }
           }
         } else if (savedView.current) {
-          f.x = savedView.current.x
-          f.y = savedView.current.y
-          f.z = savedView.current.z
+          flight.current = {
+            mode: 'exit', t: 0, midpointFired: false,
+            from: { x: f.baseX, y: f.baseY, z: f.baseZ },
+            to: { ...savedView.current },
+          }
           savedView.current = null
         }
       }
@@ -209,7 +260,7 @@ function CameraRig({
           : 0
       dr.w = THREE.MathUtils.damp(dr.w, wTarget, FREE_CAM.driftDamp, delta)
 
-            const t = state.clock.elapsedTime
+      const t = state.clock.elapsedTime
       const driftX = dr.w * FREE_CAM.driftAmp * Math.sin(t * FREE_CAM.driftFreqX)
       const driftY = dr.w * FREE_CAM.driftAmp * Math.cos(t * FREE_CAM.driftFreqY)
       cam.position.x = f.baseX + driftX
@@ -282,6 +333,9 @@ export default function Scene({
   muted,
   diveNodeId,
   onEnterNode,
+  veilRef,
+  onDiveMidpoint,
+  inWorld,
 }) {
   // shared flag: ConstellationNodes writes "a node is hovered", CameraRig
   // reads it to hold the idle drift — reading deserves a still camera
@@ -296,7 +350,7 @@ export default function Scene({
       camera={{ position: [0, 0, DOLLY.startZ], fov: DOLLY.startFov }}
       gl={{ antialias: true }}
     >
-      <HyperspaceStars warp={dollyActive} />
+      <HyperspaceStars warp={dollyActive} variant={inWorld ? 'interior' : 'galaxy'} />
       {showNodes && (
         <ConstellationNodes
           muted={muted}
@@ -304,14 +358,21 @@ export default function Scene({
           driftOffsetRef={driftOffsetRef}
           onEnterNode={onEnterNode}
           interactive={!diveNodeId}
+          visible={!inWorld}
         />
       )}
+
+      {inWorld && diveNodeId && <NodeInterior nodeId={diveNodeId} />}
+
       <CameraRig
         active={dollyActive}
         onComplete={onDollyComplete}
         promptRef={promptRef}
         onPromptFar={onPromptFar}
         holdDriftRef={hoverHoldRef}
+        veilRef={veilRef}
+        onDiveMidpoint={onDiveMidpoint}
+        diveNodeId={diveNodeId}
       />
     </Canvas>
   )

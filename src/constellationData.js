@@ -22,3 +22,29 @@ export const EDGES = NODES.filter((n) => n.parent).map((n) => [
   INDEX_BY_ID[n.parent],
   INDEX_BY_ID[n.id],
 ])
+
+// Placeholder board contents per enterable node — the seam where real
+// AI-generated artifacts plug in later. pos is world units from node center.
+export const BOARDS = {
+  requirements: [
+    { title: 'USER STORIES', lines: 4, w: 210, pos: [-70, 26] },
+    { title: 'USE CASES', lines: 3, w: 180, pos: [58, 42] },
+    { title: 'SCOPE', lines: 3, w: 190, pos: [-18, -44] },
+    { title: 'ACCEPTANCE', lines: 3, w: 170, pos: [78, -28] },
+  ],
+  architecture: [
+    { title: 'SYSTEM DIAGRAM', lines: 4, w: 220, pos: [-60, 20] },
+    { title: 'COMPONENTS', lines: 3, w: 180, pos: [62, 38] },
+    { title: 'DATA FLOW', lines: 3, w: 190, pos: [8, -46] },
+  ],
+  database: [
+    { title: 'SCHEMA', lines: 4, w: 210, pos: [-64, 24] },
+    { title: 'ENTITIES', lines: 3, w: 170, pos: [58, 36] },
+    { title: 'RELATIONS', lines: 3, w: 180, pos: [-4, -44] },
+  ],
+  wireframes: [
+    { title: 'LANDING', lines: 3, w: 190, pos: [-72, 24] },
+    { title: 'CONSTELLATION VIEW', lines: 3, w: 210, pos: [52, 40] },
+    { title: 'NODE DETAIL', lines: 3, w: 180, pos: [-8, -46] },
+  ],
+}

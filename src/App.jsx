@@ -18,6 +18,7 @@ function App() {
   const [dollyDone, setDollyDone] = useState(false)
   const [promptGone, setPromptGone] = useState(false) // flips once Scene's real per-frame scale shrinks the prompt below PROMPT_VANISH_SCALE
   const [insideNode, setInsideNode] = useState(null) // node id while dived into an artifact, else null
+  const [inWorld, setInWorld] = useState(false) // flips at the veil's peak — which side of the flash we're on
 
   const promptWrapperRef = useRef(null)
 
@@ -32,6 +33,7 @@ function App() {
   const whooshRef = useRef(null)
   const ambientStarted = useRef(false)
   const ambientFadeFrame = useRef(null)
+  const veilRef = useRef(null)
 
   useEffect(() => {
     let charIndex = 0
@@ -122,6 +124,8 @@ function App() {
     }
   }, [])
 
+  const handleDiveMidpoint = (entering) => setInWorld(entering)
+
   const enterNode = (id) => {
     whooshRef.current?.play().catch(() => {})
     setInsideNode(id)
@@ -164,6 +168,9 @@ function App() {
         muted={muted}
         diveNodeId={insideNode}
         onEnterNode={enterNode}
+        veilRef={veilRef}
+        onDiveMidpoint={handleDiveMidpoint}
+        inWorld={inWorld}
       />
     {!promptGone && (
         <div className="prompt-wrapper" ref={promptWrapperRef}>
@@ -182,18 +189,18 @@ function App() {
         </div>
       )}
 
-      {insideNode && (
+      {inWorld && insideNode && (
         <div className="interior">
           <div className="interior-breadcrumb">
             <span className="crumb-dim">Constellation</span>
             <span className="crumb-sep">/</span>
             <span>{NODES.find((n) => n.id === insideNode)?.label}</span>
           </div>
-          <div className="interior-placeholder">Canvas board — next slice</div>
           <div className="interior-hint">esc — back to constellation</div>
         </div>
       )}
 
+      <div className="veil" ref={veilRef} />
       <button
         type="button"
         className="mute-toggle"

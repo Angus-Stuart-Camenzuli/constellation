@@ -363,7 +363,7 @@
   pointer-events: none; /* board contents will opt back in next slice */
 
   opacity: 0;
-  animation: interior-in 0.6s ease forwards 0.7s; /* waits out the dive flight */
+  animation: interior-in 0.6s ease forwards 0.3s;
 }
 
 @keyframes interior-in {
@@ -373,8 +373,7 @@
 }
 
 .interior-breadcrumb,
-.interior-hint,
-.interior-placeholder {
+.interior-hint {
   font-size: 11px;
   font-weight: 300;
   letter-spacing: 2px;
@@ -395,11 +394,70 @@
   color: rgba(255, 255, 255, 0.25);
 }
 
-.interior-placeholder {
-  align-self: center;
+.interior-hint {
   color: rgba(255, 255, 255, 0.3);
 }
 
-.interior-hint {
-  color: rgba(255, 255, 255, 0.3);
+/* ---------- Dive veil + board frames ---------- */
+
+.veil {
+  position: absolute;
+  inset: 0;
+  z-index: 5;
+  background: radial-gradient(
+    circle at center,
+    rgba(214, 228, 255, 1),
+    rgba(150, 190, 255, 0.9)
+  );
+  opacity: 0; /* driven per-frame by the flight — no CSS animation here */
+  pointer-events: none;
+}
+
+.board-frame {
+  padding: 14px 16px;
+  background: rgba(10, 14, 24, 0.88);
+  border: 1px solid rgba(255, 255, 255, 0.14);
+  border-radius: 12px;
+
+  opacity: 0;
+  transform: translateY(10px);
+  animation: board-frame-in 0.7s ease forwards; /* delay set inline per frame */
+}
+
+@keyframes board-frame-in {
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.board-frame-title {
+  font-size: 11px;
+  font-weight: 400;
+  letter-spacing: 2.5px;
+  text-transform: uppercase;
+  color: rgba(255, 255, 255, 0.85);
+  margin-bottom: 10px;
+}
+
+.board-frame-line {
+  height: 6px;
+  border-radius: 3px;
+  background: rgba(255, 255, 255, 0.12);
+  margin-bottom: 8px;
+}
+
+.interior-glow {
+  width: 520px;
+  height: 520px;
+  border-radius: 50%;
+  background: radial-gradient(
+    circle,
+    rgba(150, 190, 255, 0.14),
+    rgba(150, 190, 255, 0.05) 45%,
+    transparent 70%
+  );
+  /* reuses the landing glow's breathe keyframe — same heartbeat, new room */
+  animation: breathe 9s ease-in-out infinite;
+  pointer-events: none;
 }

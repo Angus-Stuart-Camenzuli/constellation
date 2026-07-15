@@ -26,7 +26,7 @@ const proj = new THREE.Vector3()
 
 const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3)
 
-export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef, onEnterNode, interactive = true }) {
+export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef, onEnterNode, interactive = true, visible = true }) {
   // same house pattern as HyperspaceStars: JSX renders an empty group,
   // the real scene graph is built imperatively on mount and mutated
   // only inside useEffect/useFrame (keeps the purity linter happy)
@@ -42,11 +42,13 @@ export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef
   const mutedRef = useRef(muted)
   const interactiveRef = useRef(interactive)
   const onEnterNodeRef = useRef(onEnterNode)
+  const visibleRef = useRef(visible)
   useEffect(() => {
     mutedRef.current = muted
     interactiveRef.current = interactive
     onEnterNodeRef.current = onEnterNode
-  }, [muted, interactive, onEnterNode])
+    visibleRef.current = visible
+  }, [muted, interactive, onEnterNode, visible])
 
   useEffect(() => {
     const group = groupRef.current
@@ -188,6 +190,10 @@ export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef
   useFrame((state, delta) => {
     const data = dataRef.current
     if (!data.sprites.length) return
+    // hidden while inside a node — visibility toggles, component never
+    // unmounts, so the birth cascade doesn't replay when you come back
+    groupRef.current.visible = visibleRef.current
+    if (!visibleRef.current) return
     if (data.started === null) data.started = state.clock.elapsedTime
     const t = state.clock.elapsedTime - data.started
     const time = state.clock.elapsedTime
@@ -225,9 +231,9 @@ export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef
     }
     data.hovered = hovered // the click/dive slice will read this
     if (hoverHoldRef) hoverHoldRef.current = hovered >= 0
-    // repoint the summary panel when a new star is hovered. It stays
+    // repoint the summary panel when a new star is hovered; it stays
     // mounted on unhover so the fade-out can play
-    if (interactiveRef.current && hovered === -1 && data.prevHovered >= 0 && panelRef.current) {
+    if (hovered >= 0 && hovered !== panelNodeRef.current) {
       panelNodeRef.current = hovered
       setPanelNode(hovered)
     }
@@ -303,7 +309,7 @@ export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef
 
   return (
     <group ref={groupRef}>
-      {NODES.map((node, i) => (
+      {visible && NODES.map((node, i) => (
         <Html
           key={node.id}
           position={[node.position[0], node.position[1] - 26, node.position[2]]}
@@ -322,7 +328,7 @@ export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef
           </div>
         </Html>
       ))}
-      {panelNode >= 0 && (
+      {visible && panelNode >= 0 && (
         <Html
           position={[
             NODES[panelNode].position[0] + 24,
