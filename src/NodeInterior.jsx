@@ -111,7 +111,7 @@ function ScreensFrame({ screens }) {
 
 // BFS-layered auto layout: roots (no inbound edges) on the left, columns by
 // depth, rows staggered so long edges don't stack on one axis.
-function layoutGraph(nodes, edges, w, h) {
+function layoutGraph(nodes, edges, w) {
   const indeg = Object.fromEntries(nodes.map((n) => [n.id, 0]))
   edges.forEach((e) => {
     if (e.to in indeg) indeg[e.to]++
@@ -298,8 +298,10 @@ function DiagramFrame({ graph, w = 340 }) {
   )
 }
 
-// use cases arrive as actors/cases/links — convert to a graph
-function useCaseGraph(useCases) {
+// use cases arrive as actors/cases/links — convert to a graph.
+// (named to dodge the `use` prefix: the linter would treat "useCaseGraph"
+// as a React Hook — UML's "use case" vs React's "use" convention)
+function toUseCaseGraph(useCases) {
   const actors = useCases?.actors ?? []
   const cases = useCases?.cases ?? []
   return {
@@ -618,7 +620,7 @@ function buildFrames(nodeId, board) {
       return [
         { title: 'SUMMARY', w: 220, el: <div style={{ ...bodyText, color: WHITE(0.75) }}>{board.summary}</div> },
         { title: 'USER STORIES', w: 290, el: <StoriesFrame stories={board.stories} /> },
-        { title: 'USE CASES', w: 330, el: <DiagramFrame graph={useCaseGraph(board.useCases)} /> },
+        { title: 'USE CASES', w: 330, el: <DiagramFrame graph={toUseCaseGraph(board.useCases)} /> },
         { title: 'SCOPE', w: 220, el: <ScopeFrame scope={board.scope} /> },
         { title: 'SCREENS', w: 250, el: <ScreensFrame screens={board.screens} /> },
       ]
