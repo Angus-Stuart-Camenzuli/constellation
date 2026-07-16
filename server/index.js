@@ -70,6 +70,14 @@ async function generate(kind, prompt, context) {
   return block.input
 }
 
+app.get('/', (req, res) => {
+  res
+    .type('text/plain')
+    .send(
+      'constellation generation server\n\nGET  /api/health\nPOST /api/generate { kind, prompt, context }'
+    )
+})
+
 app.get('/api/health', (req, res) => {
   res.json({ ok: true, mock: MOCK, model: MOCK ? null : MODEL })
 })
