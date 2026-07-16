@@ -20,6 +20,10 @@ function App() {
   const [insideNode, setInsideNode] = useState(null) // node id while dived into an artifact, else null
   const [inWorld, setInWorld] = useState(false) // flips at the veil's peak — which side of the flash we're on
 
+  // generation pipeline state: the constellation's topology IS the schedule
+  const [nodeStates, setNodeStates] = useState({}) // id → waiting | building | ready | error
+  const [boards, setBoards] = useState({}) // id → generated artifact JSON
+
   const promptWrapperRef = useRef(null)
 
   const [placeholder, setPlaceholder] = useState('')
@@ -130,6 +134,78 @@ function App() {
     whooshRef.current?.play().catch(() => {})
     setInsideNode(id)
   }
+
+  const setNodeState = (id, st) => setNodeStates((s) => ({ ...s, [id]: st }))
+
+  const generateArtifact = async (kind, prompt, context) => {
+    const res = await fetch('/api/generate', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ kind, prompt, context }),
+    })
+    if (!res.ok) throw new Error(`generate ${kind}: ${res.status}`)
+    return res.json()
+  }
+
+  // stage 1: requirements → stage 2: three in parallel → stage 3: planning.
+  // Mirrors the constellation's edges exactly — nodes ignite in dependency order
+  const runPipeline = async (prompt) => {
+    setBoards({})
+    setNodeStates({
+      requirements: 'building',
+      architecture: 'waiting',
+      database: 'waiting',
+      wireframes: 'waiting',
+      planning: 'waiting',
+    })
+    let requirements
+    try {
+      requirements = await generateArtifact('requirements', prompt)
+      setBoards((b) => ({ ...b, requirements }))
+      setNodeState('requirements', 'ready')
+    } catch (err) {
+      console.error('requirements failed — pipeline halted:', err)
+      setNodeStates((s) => {
+        const next = {}
+        for (const k of Object.keys(s)) next[k] = 'error'
+        return next
+      })
+      return
+    }
+
+    const stage2 = ['architecture', 'database', 'wireframes']
+    stage2.forEach((k) => setNodeState(k, 'building'))
+    const results = await Promise.all(
+      stage2.map(async (kind) => {
+        try {
+          const artifact = await generateArtifact(kind, prompt, { requirements })
+          setBoards((b) => ({ ...b, [kind]: artifact }))
+          setNodeState(kind, 'ready')
+          return [kind, artifact]
+        } catch (err) {
+          console.error(`${kind} failed:`, err)
+          setNodeState(kind, 'error')
+          return [kind, null]
+        }
+      })
+    )
+    const byKind = Object.fromEntries(results)
+
+    setNodeState('planning', 'building')
+    try {
+      const planning = await generateArtifact('planning', prompt, {
+        requirements,
+        components: byKind.architecture?.components ?? null,
+        screens: requirements.screens,
+      })
+      setBoards((b) => ({ ...b, planning }))
+      setNodeState('planning', 'ready')
+    } catch (err) {
+      console.error('planning failed:', err)
+      setNodeState('planning', 'error')
+    }
+  }
+
   const leaveNode = () => setInsideNode(null)
   // ESC backs out of the interior
   useEffect(() => {
@@ -147,6 +223,7 @@ function App() {
       fadeAmbient(0, AMBIENT_FADE_OUT)
       setPhase('dissolving')
       setDollying(true)
+      runPipeline(value.trim()) // generation races the warp — stars ignite as results land
       setTimeout(() => {
         setPhase('constellation')
         fadeAmbient(AMBIENT_VOLUME, AMBIENT_FADE_IN)
@@ -173,6 +250,8 @@ function App() {
         inWorld={inWorld}
         onExitNode={leaveNode}
         promptText={value.trim()}
+        nodeStates={nodeStates}
+        boards={boards}
       />
     {!promptGone && (
         <div className="prompt-wrapper" ref={promptWrapperRef}>
