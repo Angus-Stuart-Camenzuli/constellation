@@ -182,7 +182,7 @@ function CameraRig({
     }
     const onDown = (e) => {
       if (!free.current || flight.current) return
-      if (e.target.closest('button, input')) return // UI keeps its clicks
+      if (e.target.closest('button, input, .frame-drag')) return // UI and frames own their drags
       const d = drag.current
       d.active = true
       d.lastX = e.clientX
