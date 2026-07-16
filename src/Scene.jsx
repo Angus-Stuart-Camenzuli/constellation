@@ -30,7 +30,7 @@ const PROMPT_MAX_GLOW = 2 // extra brightness once fully receded — small + bri
 // standoff = where the camera parks inside the node's world
 const FLIGHT = {
   duration: 1.7,
-  standoff: 70,
+  standoff: 95, // arrive far enough back to take in the whole board
   ease: easeInOutCubic,
 }
 
@@ -38,10 +38,10 @@ const FLIGHT = {
 // maxZ by exitOvershoot is read as intent: "take me back out"
 const INTERIOR_CAM = {
   minZ: 35,
-  maxZ: 130,
+  maxZ: 175, // roomier: boards got wider, arrival shows the whole spread
   exitOvershoot: 12,
-  boundsX: 110,
-  boundsY: 70,
+  boundsX: 175,
+  boundsY: 110,
 }
 // constellation: a star within this many world units of the zoom cursor
 // point when you hit the zoom floor auto-commits the entry
