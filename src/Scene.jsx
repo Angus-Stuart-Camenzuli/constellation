@@ -75,6 +75,7 @@ function CameraRig({
   onDiveMidpoint,
   onAutoEnter,
   onExitRequest,
+  nodeStates,
 }) {
   const divingRef = useRef(false)
   const savedView = useRef(null)
@@ -100,6 +101,11 @@ function CameraRig({
     onAutoEnterRef.current = onAutoEnter
     onExitRequestRef.current = onExitRequest
   }, [onAutoEnter, onExitRequest])
+
+  const nodeStatesRef = useRef(nodeStates)
+  useEffect(() => {
+    nodeStatesRef.current = nodeStates
+  }, [nodeStates])
 
   useEffect(() => {
     divingRef.current = !!diveNodeId
@@ -168,6 +174,7 @@ function CameraRig({
         const target = NODES.find(
           (n) =>
             n.enterable !== false &&
+            (nodeStatesRef.current?.[n.id] ?? 'ready') === 'ready' &&
             Math.hypot(n.position[0] - wx, n.position[1] - wy) < AUTO_ENTER_RADIUS
         )
         if (target) onAutoEnterRef.current?.(target.id)
@@ -402,6 +409,8 @@ export default function Scene({
   inWorld,
   onExitNode,
   promptText,
+  boards,
+  nodeStates,
 }) {
   // shared flag: ConstellationNodes writes "a node is hovered", CameraRig
   // reads it to hold the idle drift — reading deserves a still camera
@@ -426,10 +435,13 @@ export default function Scene({
           interactive={!diveNodeId}
           visible={!inWorld}
           promptText={promptText}
+          nodeStates={nodeStates}
         />
       )}
 
-      {inWorld && diveNodeId && <NodeInterior nodeId={diveNodeId} />}
+      {inWorld && diveNodeId && (
+        <NodeInterior nodeId={diveNodeId} board={boards?.[diveNodeId]} />
+      )}
 
       <CameraRig
         active={dollyActive}
@@ -442,6 +454,7 @@ export default function Scene({
         diveNodeId={diveNodeId}
         onAutoEnter={onEnterNode}
         onExitRequest={onExitNode}
+        nodeStates={nodeStates}
       />
     </Canvas>
   )

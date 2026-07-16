@@ -4,8 +4,16 @@ import { Html } from '@react-three/drei'
 import * as THREE from 'three'
 import { NODES, EDGES } from './constellationData'
 
-const BIRTH_STAGGER = 0.45 // seconds between each star igniting
 const BIRTH_DURATION = 0.9 // ignition ramp length per star
+
+// pipeline visuals: the reserved blue accent's one job — a partial arc
+// orbiting a star while the AI generates its artifact
+const ARC_COLOR = '#96beff'
+const ARC_OPACITY = 0.85
+const ARC_SPEED = 1.6 // rad/s orbit
+const SEED_OPACITY = 0.16 // the faint embryo star while waiting/building
+const SEED_SCALE = 0.45
+const ERROR_OPACITY = 0.06
 const EDGE_LEAD = 0.25     // edge starts drawing this long before its star
 const EDGE_OPACITY = 0.28  // resting edge brightness — deliberately faint
 const CORE_SIZE = 30        // sprite size in world units
@@ -26,7 +34,7 @@ const proj = new THREE.Vector3()
 
 const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3)
 
-export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef, onEnterNode, interactive = true, visible = true, promptText }) {
+export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef, onEnterNode, interactive = true, visible = true, promptText, nodeStates }) {
   // same house pattern as HyperspaceStars: JSX renders an empty group,
   // the real scene graph is built imperatively on mount and mutated
   // only inside useEffect/useFrame (keeps the purity linter happy)
@@ -43,12 +51,14 @@ export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef
   const interactiveRef = useRef(interactive)
   const onEnterNodeRef = useRef(onEnterNode)
   const visibleRef = useRef(visible)
+  const nodeStatesRef = useRef(nodeStates)
   useEffect(() => {
     mutedRef.current = muted
     interactiveRef.current = interactive
     onEnterNodeRef.current = onEnterNode
     visibleRef.current = visible
-  }, [muted, interactive, onEnterNode, visible])
+    nodeStatesRef.current = nodeStates
+  }, [muted, interactive, onEnterNode, visible, nodeStates])
 
   useEffect(() => {
     const group = groupRef.current
@@ -149,6 +159,23 @@ export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef
     window.addEventListener('pointerdown', onDown)
     window.addEventListener('pointerup', onUp)
 
+    // building arcs: partial blue rings, invisible until a node is generating
+    const arcs = NODES.map((node) => {
+      const radius = CORE_SIZE * (node.size ?? 1) * 0.42
+      const geometry = new THREE.RingGeometry(radius - 0.4, radius + 0.4, 48, 1, 0, 1.5)
+      const material = new THREE.MeshBasicMaterial({
+        color: ARC_COLOR,
+        transparent: true,
+        opacity: 0,
+        side: THREE.DoubleSide,
+        depthWrite: false,
+      })
+      const arc = new THREE.Mesh(geometry, material)
+      arc.position.set(...node.position)
+      group.add(arc)
+      return arc
+    })
+
     const tick = new Audio('/audio/hover-tick.mp3')
     tick.volume = 0.24
     tick.preload = 'auto'
@@ -157,11 +184,12 @@ export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef
       sprites,
       edges,
       rings,
+      arcs,
+      birthAt: NODES.map(() => null),
       tick,
       prevHovered: -1,
       hoverW: NODES.map(() => 0),
       hovered: -1,
-      started: null,
       pointer,
     }
 
@@ -183,6 +211,11 @@ export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef
         r.geometry.dispose()
         r.material.dispose()
       })
+      arcs.forEach((a) => {
+        group.remove(a)
+        a.geometry.dispose()
+        a.material.dispose()
+      })
       texture.dispose()
     }
   }, [])
@@ -195,16 +228,21 @@ export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef
   useFrame((state, delta) => {
     const data = dataRef.current
     if (!data.sprites.length) return
-    // hidden while inside a node — visibility toggles, component never
-    // unmounts, so the birth cascade doesn't replay when you come back
     groupRef.current.visible = visibleRef.current
     if (!visibleRef.current) return
-    if (data.started === null) data.started = state.clock.elapsedTime
-    const t = state.clock.elapsedTime - data.started
     const time = state.clock.elapsedTime
+    const states = nodeStatesRef.current
 
-    // hover detection — no raycast needed: stars are round, so "project to
-    // screen, measure pixel distance to the pointer" is the whole test
+    // resolve pipeline states and stamp ignition times. Default is 'ready'
+    // so the constellation still works with no backend running at all
+    NODES.forEach((node, i) => {
+      const st = i === 0 ? 'ready' : states?.[node.id] ?? 'ready'
+      if (st === 'ready' && data.birthAt[i] === null) {
+        data.birthAt[i] = time + EDGE_LEAD // edge draws first, star follows
+      }
+    })
+
+    // hover detection — only born stars are interactive
     const { width, height } = state.size
     const ptr = data.pointer
     let hovered = -1
@@ -212,14 +250,11 @@ export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef
       const tanHalf = Math.tan((state.camera.fov * Math.PI) / 360)
       let best = Infinity
       NODES.forEach((node, i) => {
+        if (data.birthAt[i] === null || time < data.birthAt[i]) return
         proj.copy(NODE_VECS[i]).project(state.camera)
-        if (proj.z > 1) return // behind the camera
-        // the star's hot core, converted to on-screen pixels at its depth
+        if (proj.z > 1) return
         const dist = state.camera.position.distanceTo(NODE_VECS[i])
         const pxPerUnit = height / 2 / (dist * tanHalf)
-        // undo drift's screen-space shift: camera moving +x slides the star
-        // -x on screen, so adding driftX·ppu back reprojects it as the
-        // drift-free base camera would see it
         const drift = driftOffsetRef?.current
         const sx = ((proj.x + 1) / 2) * width + (drift ? drift.x * pxPerUnit : 0)
         const sy = ((1 - proj.y) / 2) * height - (drift ? drift.y * pxPerUnit : 0)
@@ -234,22 +269,30 @@ export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef
         }
       })
     }
-    data.hovered = hovered // the click/dive slice will read this
+    // sticky hover: the panel and the corridor to it keep the hover alive
+    if (interactiveRef.current && hovered === -1 && data.prevHovered >= 0 && panelRef.current) {
+      const r = panelRef.current.getBoundingClientRect()
+      if (
+        ptr.x > r.left - 48 && ptr.x < r.right + 16 &&
+        ptr.y > r.top - 24 && ptr.y < r.bottom + 24
+      ) {
+        hovered = data.prevHovered
+      }
+    }
+    data.hovered = hovered
     if (hoverHoldRef) hoverHoldRef.current = hovered >= 0
-    // repoint the summary panel when a new star is hovered; it stays
-    // mounted on unhover so the fade-out can play
+
     if (hovered >= 0 && hovered !== panelNodeRef.current) {
       panelNodeRef.current = hovered
       setPanelNode(hovered)
     }
     if (panelRef.current && panelNodeRef.current >= 0) {
       const raw = data.hoverW[panelNodeRef.current]
-      const w = raw > 0.99 ? 1 : raw // snap: crisp text needs exact 1 / exact 0px
+      const w = raw > 0.99 ? 1 : raw
       panelRef.current.style.opacity = w
       panelRef.current.style.transform = `translateY(${(1 - w) * 8}px)`
     }
 
-    // tick once per arrival on a star — not while resting on it
     if (hovered !== data.prevHovered) {
       if (hovered >= 0 && !mutedRef.current) {
         data.tick.currentTime = 0
@@ -257,49 +300,64 @@ export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef
       }
       data.prevHovered = hovered
     }
-
     state.gl.domElement.style.cursor = hovered >= 0 ? 'pointer' : ''
 
     NODES.forEach((node, i) => {
+      const st = i === 0 ? 'ready' : states?.[node.id] ?? 'ready'
       const w = THREE.MathUtils.damp(
         data.hoverW[i], i === hovered ? 1 : 0, HOVER_DAMP, delta
       )
       data.hoverW[i] = w
 
-      const p = THREE.MathUtils.clamp(
-        (t - i * BIRTH_STAGGER) / BIRTH_DURATION, 0, 1
-      )
+      const bAt = data.birthAt[i]
+      const p = bAt === null ? 0 : THREE.MathUtils.clamp((time - bAt) / BIRTH_DURATION, 0, 1)
       const eased = easeOutCubic(p)
       const sprite = data.sprites[i]
 
-      // breathing stills as hover rises — the star snaps to attention
-      const calm = 1 - w
-      const breathe = 1 + 0.05 * calm * Math.sin(time * 0.9 + i * 1.7)
-      const flicker = 0.9 + 0.1 * calm * Math.sin(time * 1.3 + i * 2.3)
-      sprite.material.opacity = eased * THREE.MathUtils.lerp(flicker, 1, w)
-
-      // brief flare past full size, settling back — "ignition", not "fade-in"
-      const overshoot = 1 + 0.35 * Math.sin(p * Math.PI)
-      sprite.scale.setScalar(
-        Math.max(
-          eased * CORE_SIZE * (node.size ?? 1) * overshoot * breathe *
-            (1 + HOVER_SCALE_BOOST * w),
-          0.001
+      if (p === 0) {
+        // embryo: a faint promise of a star while the AI works (or failed)
+        const seedO = st === 'error' ? ERROR_OPACITY : SEED_OPACITY
+        sprite.material.opacity = seedO * (0.85 + 0.15 * Math.sin(time * 1.1 + i))
+        sprite.scale.setScalar(CORE_SIZE * (node.size ?? 1) * SEED_SCALE)
+      } else {
+        const calm = 1 - w
+        const breathe = 1 + 0.05 * calm * Math.sin(time * 0.9 + i * 1.7)
+        const flicker = 0.9 + 0.1 * calm * Math.sin(time * 1.3 + i * 2.3)
+        sprite.material.opacity = eased * THREE.MathUtils.lerp(flicker, 1, w)
+        const overshoot = 1 + 0.35 * Math.sin(p * Math.PI)
+        sprite.scale.setScalar(
+          Math.max(
+            eased * CORE_SIZE * (node.size ?? 1) * overshoot * breathe *
+              (1 + HOVER_SCALE_BOOST * w),
+            0.001
+          )
         )
-      )
+      }
 
-      // ring and label ride the same weight
+      // the building arc: fades in while generating, orbits, fades out
+      const arc = data.arcs[i]
+      arc.material.opacity = THREE.MathUtils.damp(
+        arc.material.opacity, st === 'building' ? ARC_OPACITY : 0, 6, delta
+      )
+      if (arc.material.opacity > 0.01) arc.rotation.z -= ARC_SPEED * delta
+
       data.rings[i].material.opacity = eased * HOVER_RING_OPACITY * w
       const label = labelRefs.current[i]
       if (label) {
+        label.style.opacity = p === 0 ? (st === 'error' ? 0.15 : 0.35) : 1
         label.style.color = `rgba(255, 255, 255, ${
           LABEL_REST_ALPHA + (LABEL_HOVER_ALPHA - LABEL_REST_ALPHA) * w
         })`
       }
     })
 
+    // edges draw when their CHILD ignites (leading it by EDGE_LEAD)
     data.edges.forEach((line, i) => {
       const [from, to] = EDGES[i]
+      const bAt = data.birthAt[to]
+      const p = bAt === null
+        ? 0
+        : THREE.MathUtils.clamp((time - (bAt - EDGE_LEAD)) / BIRTH_DURATION, 0, 1)
       // each edge is timed to its CHILD's ignition — multi-parent safe:
       // planning's three converging edges all draw ahead of its single birth
       const nodeStart = to * BIRTH_STAGGER
@@ -313,7 +371,6 @@ export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef
         THREE.MathUtils.lerp(EDGE_OPACITY, EDGE_HOVER_OPACITY, w)
     })
   })
-
   return (
     <group ref={groupRef}>
       {visible && NODES.map((node, i) => (
@@ -329,7 +386,6 @@ export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef
               labelRefs.current[i] = el
             }}
             className="node-label"
-            style={{ animationDelay: `${i * BIRTH_STAGGER + 0.5}s` }}
           >
             {node.id === 'origin' && promptLabel ? promptLabel : node.label}
           </div>

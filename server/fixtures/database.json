@@ -1,0 +1,67 @@
+{
+  "entities": [
+    {
+      "name": "users",
+      "fields": [
+        { "name": "id", "type": "uuid", "pk": true, "required": true },
+        { "name": "email", "type": "varchar(255)", "required": true },
+        { "name": "display_name", "type": "varchar(80)", "required": true },
+        { "name": "created_at", "type": "timestamptz", "required": true }
+      ]
+    },
+    {
+      "name": "recipes",
+      "fields": [
+        { "name": "id", "type": "uuid", "pk": true, "required": true },
+        { "name": "author_id", "type": "uuid", "fk": "users", "required": true },
+        { "name": "title", "type": "varchar(120)", "required": true },
+        { "name": "prep_minutes", "type": "integer", "required": true },
+        { "name": "cost_cents", "type": "integer" },
+        { "name": "steps", "type": "text", "required": true },
+        { "name": "created_at", "type": "timestamptz", "required": true }
+      ]
+    },
+    {
+      "name": "ingredients",
+      "fields": [
+        { "name": "id", "type": "uuid", "pk": true, "required": true },
+        { "name": "recipe_id", "type": "uuid", "fk": "recipes", "required": true },
+        { "name": "name", "type": "varchar(80)", "required": true },
+        { "name": "quantity", "type": "varchar(40)" }
+      ]
+    },
+    {
+      "name": "collections",
+      "fields": [
+        { "name": "id", "type": "uuid", "pk": true, "required": true },
+        { "name": "owner_id", "type": "uuid", "fk": "users", "required": true },
+        { "name": "name", "type": "varchar(80)", "required": true }
+      ]
+    },
+    {
+      "name": "collection_recipes",
+      "fields": [
+        { "name": "collection_id", "type": "uuid", "fk": "collections", "pk": true, "required": true },
+        { "name": "recipe_id", "type": "uuid", "fk": "recipes", "pk": true, "required": true }
+      ]
+    },
+    {
+      "name": "reports",
+      "fields": [
+        { "name": "id", "type": "uuid", "pk": true, "required": true },
+        { "name": "recipe_id", "type": "uuid", "fk": "recipes", "required": true },
+        { "name": "reporter_id", "type": "uuid", "fk": "users", "required": true },
+        { "name": "reason", "type": "text", "required": true },
+        { "name": "status", "type": "varchar(20)", "required": true }
+      ]
+    }
+  ],
+  "relations": [
+    { "from": "users", "to": "recipes", "cardinality": "1-N", "label": "authors" },
+    { "from": "recipes", "to": "ingredients", "cardinality": "1-N", "label": "contains" },
+    { "from": "users", "to": "collections", "cardinality": "1-N", "label": "owns" },
+    { "from": "collections", "to": "recipes", "cardinality": "N-N", "label": "saves" },
+    { "from": "recipes", "to": "reports", "cardinality": "1-N", "label": "flagged by" }
+  ],
+  "ddl": "CREATE TABLE users (\n  id uuid PRIMARY KEY,\n  email varchar(255) NOT NULL UNIQUE,\n  display_name varchar(80) NOT NULL,\n  created_at timestamptz NOT NULL DEFAULT now()\n);\n\nCREATE TABLE recipes (\n  id uuid PRIMARY KEY,\n  author_id uuid NOT NULL REFERENCES users(id),\n  title varchar(120) NOT NULL,\n  prep_minutes integer NOT NULL,\n  cost_cents integer,\n  steps text NOT NULL,\n  created_at timestamptz NOT NULL DEFAULT now()\n);\n\nCREATE TABLE ingredients (\n  id uuid PRIMARY KEY,\n  recipe_id uuid NOT NULL REFERENCES recipes(id) ON DELETE CASCADE,\n  name varchar(80) NOT NULL,\n  quantity varchar(40)\n);\n\nCREATE TABLE collections (\n  id uuid PRIMARY KEY,\n  owner_id uuid NOT NULL REFERENCES users(id),\n  name varchar(80) NOT NULL\n);\n\nCREATE TABLE collection_recipes (\n  collection_id uuid REFERENCES collections(id) ON DELETE CASCADE,\n  recipe_id uuid REFERENCES recipes(id) ON DELETE CASCADE,\n  PRIMARY KEY (collection_id, recipe_id)\n);\n\nCREATE TABLE reports (\n  id uuid PRIMARY KEY,\n  recipe_id uuid NOT NULL REFERENCES recipes(id),\n  reporter_id uuid NOT NULL REFERENCES users(id),\n  reason text NOT NULL,\n  status varchar(20) NOT NULL DEFAULT 'open'\n);"
+}

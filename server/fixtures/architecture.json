@@ -1,0 +1,49 @@
+{
+  "context": {
+    "nodes": [
+      { "id": "student", "label": "Student", "type": "user" },
+      { "id": "app", "label": "Recipe App", "type": "system" },
+      { "id": "sso", "label": "University SSO", "type": "external" },
+      { "id": "cdn", "label": "Image CDN", "type": "external" }
+    ],
+    "edges": [
+      { "from": "student", "to": "app", "label": "browses & posts" },
+      { "from": "app", "to": "sso", "label": "authenticates via" },
+      { "from": "app", "to": "cdn", "label": "serves photos from" }
+    ]
+  },
+  "components": {
+    "nodes": [
+      { "id": "web", "label": "Mobile web app", "type": "ui" },
+      { "id": "api", "label": "REST API", "type": "service" },
+      { "id": "feed-svc", "label": "Feed service", "type": "service" },
+      { "id": "mod-svc", "label": "Moderation service", "type": "service" },
+      { "id": "pg", "label": "PostgreSQL", "type": "store" },
+      { "id": "cdn", "label": "Image CDN", "type": "external" }
+    ],
+    "edges": [
+      { "from": "web", "to": "api", "label": "JSON/HTTPS" },
+      { "from": "api", "to": "feed-svc", "label": "feed queries" },
+      { "from": "api", "to": "mod-svc", "label": "reports" },
+      { "from": "feed-svc", "to": "pg", "label": "reads" },
+      { "from": "mod-svc", "to": "pg", "label": "writes" },
+      { "from": "api", "to": "cdn", "label": "upload URLs" }
+    ]
+  },
+  "dataFlow": {
+    "nodes": [
+      { "id": "student", "label": "Student", "type": "user" },
+      { "id": "post", "label": "Post recipe", "type": "process" },
+      { "id": "build-feed", "label": "Build feed", "type": "process" },
+      { "id": "recipes", "label": "Recipe store", "type": "store" },
+      { "id": "images", "label": "Image store", "type": "store" }
+    ],
+    "edges": [
+      { "from": "student", "to": "post", "label": "recipe form" },
+      { "from": "post", "to": "recipes", "label": "validated recipe" },
+      { "from": "post", "to": "images", "label": "photos" },
+      { "from": "recipes", "to": "build-feed", "label": "recent recipes" },
+      { "from": "build-feed", "to": "student", "label": "ranked feed" }
+    ]
+  }
+}

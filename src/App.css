@@ -294,7 +294,6 @@
   white-space: nowrap;
   color: rgba(255, 255, 255, 0.55);
   opacity: 0;
-  animation: node-label-in 0.8s ease forwards; /* delay set inline per node */
 }
 
 @keyframes node-label-in {
@@ -460,4 +459,16 @@
   /* reuses the landing glow's breathe keyframe — same heartbeat, new room */
   animation: breathe 9s ease-in-out infinite;
   pointer-events: none;
+}
+
+.board-frame-json {
+  margin: 0;
+  max-height: 180px;
+  overflow: hidden;
+  font-family: ui-monospace, 'Cascadia Mono', monospace;
+  font-size: 10px;
+  line-height: 1.5;
+  color: rgba(255, 255, 255, 0.55);
+  white-space: pre-wrap;
+  word-break: break-word;
 }
