@@ -1,0 +1,42 @@
+{
+  "phases": [
+    { "name": "Setup & auth", "startWeek": 1, "weeks": 2, "deps": [] },
+    { "name": "Recipe CRUD", "startWeek": 2, "weeks": 3, "deps": ["Setup & auth"] },
+    { "name": "Feed & filters", "startWeek": 4, "weeks": 2, "deps": ["Recipe CRUD"] },
+    { "name": "Collections", "startWeek": 6, "weeks": 2, "deps": ["Feed & filters"] },
+    { "name": "Moderation", "startWeek": 7, "weeks": 2, "deps": ["Recipe CRUD"] },
+    { "name": "Beta & polish", "startWeek": 9, "weeks": 3, "deps": ["Collections", "Moderation"] }
+  ],
+  "milestones": [
+    { "name": "First recipe posted", "week": 4 },
+    { "name": "Feed live with filters", "week": 6 },
+    { "name": "Campus beta", "week": 9 },
+    { "name": "Public launch", "week": 12 }
+  ],
+  "risks": [
+    {
+      "risk": "University SSO integration delays",
+      "likelihood": "M",
+      "impact": "H",
+      "mitigation": "Ship email magic-link auth first; SSO behind a flag"
+    },
+    {
+      "risk": "Image storage costs grow with adoption",
+      "likelihood": "M",
+      "impact": "M",
+      "mitigation": "Compress on upload, cap photos per recipe at 3"
+    },
+    {
+      "risk": "Moderation load exceeds volunteer capacity",
+      "likelihood": "L",
+      "impact": "H",
+      "mitigation": "Auto-hide after N reports; weekly review rota"
+    },
+    {
+      "risk": "Cold-start: empty feed at launch",
+      "likelihood": "H",
+      "impact": "M",
+      "mitigation": "Seed 50 recipes with the campus food society before beta"
+    }
+  ]
+}

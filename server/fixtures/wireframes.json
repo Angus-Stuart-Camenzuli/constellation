@@ -1,0 +1,54 @@
+{
+  "screens": [
+    {
+      "name": "Feed",
+      "device": "mobile",
+      "elements": [
+        { "type": "navbar", "label": "Recipes", "x": 0, "y": 0, "w": 12, "h": 2 },
+        { "type": "input", "label": "Search", "x": 0, "y": 2, "w": 8, "h": 1 },
+        { "type": "button", "label": "Filters", "x": 8, "y": 2, "w": 4, "h": 1 },
+        { "type": "list", "label": "Recipe cards", "x": 0, "y": 3, "w": 12, "h": 13 },
+        { "type": "tabbar", "label": "Feed / Post / Profile", "x": 0, "y": 16, "w": 12, "h": 2 }
+      ]
+    },
+    {
+      "name": "Recipe detail",
+      "device": "mobile",
+      "elements": [
+        { "type": "navbar", "label": "Back", "x": 0, "y": 0, "w": 12, "h": 2 },
+        { "type": "image", "label": "Hero photo", "x": 0, "y": 2, "w": 12, "h": 5 },
+        { "type": "text", "label": "Title + badges", "x": 0, "y": 7, "w": 8, "h": 2 },
+        { "type": "button", "label": "Save", "x": 8, "y": 7, "w": 4, "h": 2 },
+        { "type": "list", "label": "Ingredients", "x": 0, "y": 9, "w": 12, "h": 3 },
+        { "type": "list", "label": "Steps", "x": 0, "y": 12, "w": 12, "h": 5 },
+        { "type": "button", "label": "Report", "x": 8, "y": 17, "w": 4, "h": 1 }
+      ]
+    },
+    {
+      "name": "Post recipe",
+      "device": "mobile",
+      "elements": [
+        { "type": "navbar", "label": "New recipe", "x": 0, "y": 0, "w": 12, "h": 2 },
+        { "type": "image", "label": "Add photos", "x": 0, "y": 2, "w": 12, "h": 4 },
+        { "type": "input", "label": "Title", "x": 0, "y": 6, "w": 12, "h": 1 },
+        { "type": "input", "label": "Prep time / cost", "x": 0, "y": 7, "w": 12, "h": 1 },
+        { "type": "form", "label": "Ingredients", "x": 0, "y": 8, "w": 12, "h": 3 },
+        { "type": "form", "label": "Steps", "x": 0, "y": 11, "w": 12, "h": 5 },
+        { "type": "button", "label": "Publish", "x": 0, "y": 16, "w": 12, "h": 2 }
+      ]
+    },
+    {
+      "name": "Profile",
+      "device": "mobile",
+      "elements": [
+        { "type": "navbar", "label": "Profile", "x": 0, "y": 0, "w": 12, "h": 2 },
+        { "type": "card", "label": "Avatar + name", "x": 0, "y": 2, "w": 12, "h": 3 },
+        { "type": "text", "label": "My recipes", "x": 0, "y": 5, "w": 12, "h": 1 },
+        { "type": "list", "label": "Posted recipes", "x": 0, "y": 6, "w": 12, "h": 5 },
+        { "type": "text", "label": "Collections", "x": 0, "y": 11, "w": 12, "h": 1 },
+        { "type": "list", "label": "Collections", "x": 0, "y": 12, "w": 12, "h": 4 },
+        { "type": "tabbar", "label": "Feed / Post / Profile", "x": 0, "y": 16, "w": 12, "h": 2 }
+      ]
+    }
+  ]
+}

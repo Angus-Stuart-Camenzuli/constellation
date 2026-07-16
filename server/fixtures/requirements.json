@@ -1,0 +1,58 @@
+{
+  "summary": "A mobile-first recipe sharing app where university students post, discover and save cheap, quick meals.",
+  "stories": [
+    {
+      "as": "a busy student",
+      "want": "to filter recipes by prep time and cost",
+      "so": "I can cook something real between classes",
+      "acceptance": [
+        "Feed shows prep-time and cost badges on every card",
+        "Filtering by max time updates results in under a second",
+        "Empty results suggest loosening filters"
+      ]
+    },
+    {
+      "as": "a home cook",
+      "want": "to post a recipe with photos and steps",
+      "so": "I can share my cheap go-to meals",
+      "acceptance": [
+        "Form validates title, at least one step and one photo",
+        "Posted recipe appears in the feed immediately"
+      ]
+    },
+    {
+      "as": "a returning user",
+      "want": "to save recipes into collections",
+      "so": "I can find my favourites again quickly",
+      "acceptance": [
+        "Save toggle works from feed and detail views",
+        "Collections persist across sessions"
+      ]
+    },
+    {
+      "as": "a moderator",
+      "want": "to review and remove reported content",
+      "so": "the feed stays trustworthy",
+      "acceptance": [
+        "Reported recipes appear in a review queue",
+        "Removing a recipe hides it from all feeds within a minute"
+      ]
+    }
+  ],
+  "useCases": {
+    "actors": ["Student", "Moderator"],
+    "cases": ["Browse & filter feed", "Post recipe", "Save to collection", "Report content", "Review reports"],
+    "links": [[0, 0], [0, 1], [0, 2], [0, 3], [1, 4]]
+  },
+  "scope": {
+    "in": ["Recipe feed with time/cost filters", "Posting with photos", "Collections", "Reporting and basic moderation"],
+    "out": ["Meal-planning calendar", "Grocery delivery integration", "Video recipes"],
+    "assumptions": ["Mobile-first usage", "English only at launch", "Single campus community for v1"]
+  },
+  "screens": [
+    { "name": "Feed", "purpose": "Browse and filter recipes", "device": "mobile" },
+    { "name": "Recipe detail", "purpose": "Read steps, save, report", "device": "mobile" },
+    { "name": "Post recipe", "purpose": "Create a new recipe", "device": "mobile" },
+    { "name": "Profile", "purpose": "Your posts and collections", "device": "mobile" }
+  ]
+}
