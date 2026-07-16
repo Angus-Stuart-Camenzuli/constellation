@@ -261,7 +261,9 @@ export const SYSTEM_PROMPTS = {
   architecture:
     BASE +
     ' Produce three diagrams as node/edge graphs: system context (the product, its users, external systems), ' +
-    'components (ui/services/stores), and data flow. Edge from/to must reference your own node ids exactly.',
+    'components (ui/services/stores), and data flow. Edge from/to must reference your own node ids exactly. ' +
+    'Keep each graph SMALL and readable: 4-7 nodes, at most 8 edges. Node labels must be 1-2 short words ' +
+    '(e.g. "REST API", "Feed service"). Edge labels at most 3 words.',
   database:
     BASE +
     ' Produce the data model: entities with snake_case names and typed fields (mark pks and fks), ' +
@@ -269,8 +271,11 @@ export const SYSTEM_PROMPTS = {
   wireframes:
     BASE +
     ' Produce one wireframe per screen listed in the requirements context, reusing those exact screen names. ' +
-    'Layout on a 12-column x 18-row grid: y grows downward, elements should not overlap, fill the canvas sensibly ' +
-    '(navbar/tabbar full-width, content in between).',
+    'Layout on a 12-column x 18-row grid (y grows downward). HARD RULES: elements must NOT overlap — stack ' +
+    'full-width rows top to bottom, where each element starts at y = previous element y + previous h. ' +
+    'Mobile screens: navbar at y=0 h=2 first, tabbar at y=16 h=2 last, content rows between (5-8 elements total). ' +
+    'Prefer list/card/form/image blocks for content; use short labels (1-3 words). Two elements may share a row ' +
+    'only if their x ranges do not intersect.',
   planning:
     BASE +
     ' Produce a delivery plan over a 12-week horizon: phases with start week, duration and dependencies ' +

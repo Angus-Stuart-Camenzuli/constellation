@@ -48,26 +48,60 @@ function buildUserMessage(kind, prompt, context) {
 async function generate(kind, prompt, context) {
   const msg = await anthropic.messages.create({
     model: MODEL,
-    max_tokens: 4000,
+    max_tokens: 8000, // generous headroom — a truncated tool call returns partial/empty input
     system: SYSTEM_PROMPTS[kind],
     tools: [
       {
         name: `emit_${kind}`,
-        description: `Emit the ${kind} artifact as structured JSON.`,
+        // enumerate the exact top-level keys — without this the model
+        // sometimes wraps the whole artifact under one property name
+        description:
+          `Emit the ${kind} artifact as structured JSON. The tool input's ` +
+          `TOP-LEVEL keys must be exactly: ${(REQUIRED_KEYS[kind] ?? []).join(', ')}. ` +
+          `Do not nest the artifact under any wrapper key.`,
         input_schema: SCHEMAS[kind],
       },
     ],
-    tool_choice: { type: 'tool', name: `emit_${kind}` },
+    tool_choice: { type: 'tool', name: `emit_${kind}`, disable_parallel_tool_use: true },
     messages: [{ role: 'user', content: buildUserMessage(kind, prompt, context) }],
   })
 
-  const block = msg.content.find((b) => b.type === 'tool_use')
-  if (!block) throw new Error('no tool_use block in response')
+  const toolBlocks = msg.content.filter((b) => b.type === 'tool_use')
+  if (!toolBlocks.length) {
+    throw new Error(`no tool_use block (stop_reason=${msg.stop_reason})`)
+  }
+  // a response may split one artifact across several tool_use blocks —
+  // merge all their inputs (later blocks win on key collisions)
+  let input = Object.assign({}, ...toolBlocks.map((b) => b.input))
 
-  const missing = (REQUIRED_KEYS[kind] ?? []).filter((k) => !(k in block.input))
-  if (missing.length) throw new Error(`response missing keys: ${missing.join(', ')}`)
+  // unwrap heuristic: the model sometimes nests the whole artifact under a
+  // single stray key (observed: everything inside `scope`). If the inner
+  // object matches our required keys better than the outer one, descend.
+  const outerKeys = Object.keys(input)
+  if (outerKeys.length === 1 && input[outerKeys[0]] && typeof input[outerKeys[0]] === 'object') {
+    const inner = input[outerKeys[0]]
+    const req = REQUIRED_KEYS[kind] ?? []
+    const innerHits = req.filter((k) => k in inner).length
+    const outerHits = req.filter((k) => k in input).length
+    if (innerHits > outerHits) {
+      console.warn(`[${kind}] unwrapped artifact from stray '${outerKeys[0]}' wrapper`)
+      input = inner
+    }
+  }
 
-  return block.input
+  const missing = (REQUIRED_KEYS[kind] ?? []).filter((k) => !(k in input))
+  if (missing.length) {
+    console.warn(
+      `[${kind}] stop_reason=${msg.stop_reason} blocks=${toolBlocks.length} ` +
+        `model=${msg.model} output_tokens=${msg.usage?.output_tokens} ` +
+        `received keys=[${Object.keys(input).join(', ')}]`
+    )
+    // full evidence dump — what did the API actually send back?
+    console.warn(`[${kind}] raw content:\n${JSON.stringify(msg.content, null, 2).slice(0, 2500)}`)
+    throw new Error(`response missing keys: ${missing.join(', ')}`)
+  }
+
+  return input
 }
 
 app.get('/', (req, res) => {

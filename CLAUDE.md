@@ -1,95 +1,109 @@
 # Constellation
 
-Hackathon project (Hoobit Hacks 2026). Read this whole file before making changes — it captures decisions and context that aren't visible from the code alone.
+Hackathon project (Hoobit Hacks 2026, online/Devpost). Read this whole file before making changes — it captures decisions and context that aren't visible from the code alone.
 
 ## Concept
 
-A spatial interface for AI: instead of a chatbot with a text box and vertical transcript, AI interactions exist as objects in a 3D space. The user types what they want to build; an AI would eventually construct requirements/architecture/database/wireframes as interconnected nodes in that space. Target user: software engineers planning a project (ideation + design phase), not another AI app builder.
+A spatial interface for AI: instead of a chatbot transcript, AI work exists as objects in 3D space. The user types a product idea; a real Claude-powered pipeline generates software design artifacts (requirements, architecture, database, wireframes, planning) as stars in a constellation. Diving into a star reveals its artifacts as glass frames floating in space. Target user: software engineers in the ideation/design phase.
 
-**This is an experience prototype, not a working product.** Philosophy: build the feeling before the functionality. Do not add AI agents, artifact generation, or AI integration without being asked. Enter currently only triggers the visual transition; the typed prompt goes nowhere.
+**Status: working product with live AI generation.** The old "experience prototype, no AI" philosophy is retired — the backend exists and works. The one deliberately unbuilt half: *conversation*. Generation is one-shot (prompt → pipeline → boards); there is no in-node follow-up dialogue yet. That's the honest "what's next."
 
 ## Design direction
 
-Inspiration: Iron Man JARVIS interface, Interstellar, Apple product design, space/constellation metaphors. The feeling: "an intelligent system is waking up." Minimal, elegant, futuristic, calm — huge and full at once.
-
-Avoid: cyberpunk aesthetics, neon gamer UI, complex HUDs, generic chatbot appearance.
+Inspiration: JARVIS, Interstellar, Apple, constellation metaphors. Feeling: "an intelligent system is waking up." Avoid: cyberpunk, neon gamer UI, complex HUDs, generic chatbot looks.
 
 Core visual principles (settled):
-- **Stars from far, UI up close.** At map distance artifacts are celestial objects (bright specks + spaced-caps labels). Information reveals with proximity: hover = ring + label brighten, click = dive in. UI panels only appear at reading/editing depth.
-- **Monochrome blue-white everywhere, one accent.** `rgba(150, 190, 255)` is reserved exclusively for "the AI is working on this" (e.g. the building-state arc). No per-artifact-type colors.
-- **Edges whisper.** Connection lines are faint (~0.28 opacity), never full-white Skyrim-style beams.
-- One signature element per screen; no competing effects.
+- **Stars from far, UI up close.** Distance = celestial objects; hover = ring + summary panel; dive = full artifacts.
+- **Monochrome blue-white, one accent.** `rgba(150, 190, 255)` means exactly one thing: "the AI is working on this" (building arc, milestone diamonds, pk markers, acceptance checks). No per-type colors.
+- **Edges whisper** (~0.28 opacity, 0.5 on hover).
+- One signature element per screen. Everything moves damped; nothing snaps.
 
 ## Decisions log — do not relitigate without user direction
 
-- **The orb is retired.** The landing glow is a UI design element that recedes with the prompt and never returns. No persistent AI avatar / idle-listening-thinking states. "The AI is present" is expressed through motion design (node birth animations, building arcs), not a mascot.
-- **Node interiors are canvas boards, not recursive star systems.** Diving into an artifact lands on a spatial Canva/Figma-style board where its contents (wireframe frames, user story cards, diagrams) float at full fidelity — draggable, zoomable, side by side. A recursive "satellites orbiting a sun" model was designed and explicitly rejected in favor of this.
-- **Tree topology:** prompt → requirements → {architecture, database, wireframes}. Requirements drive the design phase, so the edges mean something. Laid out as a diagonal flow (idea enters lower-left, work cascades up-right) with irregular angles and per-node z-depth — a constellation, not an org chart. Future artifacts extend the flow rightward.
-- **Hyperspace warp is intro-only.** The streak effect fires during the Enter→constellation dolly and never again; the free camera must not trigger it (gated by the `warp` prop). The subtle/calm dolly mode was removed long ago — don't reintroduce either behavior.
-- **Camera feel:** grab-the-sky drag panning, cursor-anchored wheel zoom (dolly on z, never fov-zoom), damped target-following everywhere, idle drift when hands-off.
+- **Orb retired.** No AI avatar. Presence = motion design (birth ignitions, blue building arcs).
+- **Node interiors are canvas boards**, not recursive star systems. Artifacts render at full fidelity in space.
+- **Topology = generation pipeline.** origin → requirements → {architecture, database, wireframes} → planning (multi-parent convergence, `parents: []` arrays). Stars ignite in dependency order as real generations complete.
+- **Streaks are intro-only.** Enter/exit node travel uses scripted flight + veil flash + starfield re-seed ("new galaxy"), never streaks.
+- **Camera feel:** grab-the-sky pan, cursor-anchored dolly zoom, damped target-following, idle drift (held during hover/dive). Zoom is also navigation: zoom into a star = enter it, zoom out inside = leave.
+- **Renderers decide pixels, the model decides content.** Artifacts arrive as schema-forced JSON; React/SVG renderers draw them in house style. Never render raw model HTML.
+- **Acceptance criteria live inside story cards** (no separate artifact). Database = ERD entities + relations + DDL (no GRD).
 
 ## Current build status
 
-**Built and working:**
-- Landing screen: black void, centered prompt with typing-out placeholder, breathing glow + orbit-ring (these live *inside* `.prompt-wrapper` and recede with it), ambient hum + Enter whoosh, mute toggle.
-- Transition: ease-in-out dolly (wind-up → hyperspace rip → settle); the prompt assembly recedes with real perspective math (scale/opacity/blur written per-frame by Scene.jsx) and dissolves into the distance.
-- Constellation: 5 nodes (origin + 4 artifacts) as glowing sprites with drei `Html` labels, staggered birth cascade (edge draws in, star ignites with overshoot flare), idle breathing (desynced scale/opacity pulses).
-- Free camera: damped target rig, wheel zoom clamped z 80–320 anchored at cursor, grab-the-sky drag pan with bounds, idle drift (Lissajous wander, fades out on input, respects reduced-motion).
+**Everything works end-to-end:** landing → prompt recede + warp → constellation births as the pipeline generates (blue arc = building, ignition = ready, dim embryo = waiting/error) → hover (ring, brightened label, glass summary panel) → click or zoom-in to dive (flight + veil + sparse interior sky) → boards with real rendered artifacts → ESC or zoom-out to return. Prompt text becomes the origin star's label and its panel text.
 
-**Next up, in order:**
-1. Hover states (raycast sprites → ring fades in, label brightens, pointer cursor).
-2. Hover glass summary panel (title, one-liner, "click to enter" hint — small, not the full artifact).
-3. Click-to-dive: camera flies into a node (reuse dolly mechanics + second whoosh).
-4. Canvas-board interior for artifacts (the big one — see decisions log).
+**Tomorrow (final session):** 1) drag-to-arrange board frames — design agreed: frames get pointer events; camera's `onDown` ignores drags starting inside `.board-frame` (extend the existing `closest('button, input')` check); deltas bank in refs, inner-div `translate` written directly (promptRef pattern, no re-renders); same `worldPerPixel` conversion as pan; offsets in a module-level map keyed by node+frame (survives re-entry, resets on reload); slight lift on grab. 2) Devpost submission: write-up + demo video.
 
-**Polish backlog (unordered):** wire the actual typed prompt text into the origin star's label ("YOUR PROMPT" is a placeholder); further constellation layout tuning ("pretty good, not perfect"); remove the dead commented-out `<fog>` line in Scene.jsx; optionally rebuild a stronger landing glow via the glow divs (user currently prefers the cleaner look).
+**Parked (won't ship):** exit-flight frame recede (frames vanish at veil midpoint instead of receding like the landing prompt); rogue star streak micro-jitter during drift; DDL frame truncates long SQL (max-height); ERD has no drawn relationship lines (entities grid + relations list instead); in-node conversation (v2 idea: prompt bar inside a board → one call → new frame ignites).
 
-## Tech stack
+## Tech stack & running it
 
-React + Vite, plain CSS (no framework), React Three Fiber + `three`. `@react-three/drei` **is used** (its `Html` component projects the node labels) — do not remove it.
+Frontend: React + Vite, plain CSS, React Three Fiber + three + drei (`Html` projects labels/panels/frames — do not remove).
+Backend: Node + Express (`server/`), `@anthropic-ai/sdk`, model `claude-sonnet-5` (override via `MODEL` in `server/.env`).
+
+Two terminals: `npm run dev` (Vite, :5173, proxies `/api`→:3001) + `npm run server` (live; needs `ANTHROPIC_API_KEY` in `server/.env`, git-ignored) or `npm run server:mock` (fixtures with fake latency — offline demo insurance; the `--mock` flag exists because `MOCK=1` doesn't work in PowerShell).
 
 ## File structure
 
 ```
 src/
-  App.jsx                — phase state machine (landing/dissolving/constellation), prompt UI, audio
-  App.css                — all 2D UI styling (prompt, glows, node labels, cursor states)
-  Scene.jsx              — R3F Canvas, CameraRig (dolly + free camera), FREE_CAM tuning
-  HyperspaceStars.jsx    — streaking starfield (warp gated to intro)
-  ConstellationNodes.jsx — node data (NODES/EDGES), sprites, birth animation, labels
-  index.css              — global reset, font, page background
-public/
-  audio/
-    ambient-hum.mp3      — looping bed, volume 0.25
-    enter-whoosh.mp3     — plays on Enter
+  App.jsx                — phases, prompt UI, audio, pipeline orchestrator (runPipeline,
+                           nodeStates waiting|building|ready|error, boards state)
+  App.css                — 2D UI styling (prompt, labels, panels, interior, veil, board frames)
+  Scene.jsx              — R3F Canvas, CameraRig (dolly → free cam → enter/exit flights),
+                           FREE_CAM / FLIGHT / INTERIOR_CAM tuning, veil driving, bounds swap
+  HyperspaceStars.jsx    — starfield; `warp` gates streaks to intro; `variant` galaxy|interior re-seeds the sky
+  ConstellationNodes.jsx — stars, edges, hover system, summary panel, building arcs,
+                           state-driven ignition (birthAt), click detection
+  NodeInterior.jsx       — board renderers (stories, scope, diagrams w/ auto-layout, ERD,
+                           DDL, wireframes as app skeletons, gantt, risks) — single default
+                           export; all styling inline (Fast Refresh + no CSS sprawl)
+  constellationData.js   — NODES (parents arrays), EDGES derivation, static BOARDS placeholders
+  index.css              — reset, font, page background (MUST keep background-color: black — see gotchas)
+server/
+  index.js               — POST /api/generate {kind, prompt, context}; forced tool-use JSON;
+                           unwrap heuristic; retry; MOCK mode; diagnostics on failure
+  schemas.js             — five artifact JSON schemas + per-kind system prompts (caps, label
+                           limits, wireframe no-overlap rules live HERE — tune prompts here)
+  fixtures/*.json        — mock artifacts (recipe app), double as schema documentation
+BACKEND_PLAN.md          — pipeline design doc
 ```
 
 ## Architecture notes
 
-**Camera rig (Scene.jsx).** Two modes in one `CameraRig`: scripted dolly, then free camera. The mode switch is the `free` ref going from `null` to a target object at dolly completion. Free-camera rule: **input handlers never move the camera** — they write to the target (`free.current.x/y/z`) or bank pixel deltas in refs; `useFrame` drains inputs, damps a stored *base* position toward the target, and renders `camera = base + drift`. Drift is added after the damp on purpose — folding it into the follow makes them fight. Pixel→world conversion happens in `useFrame` (`worldPerPixel = 2·z·tan(fov/2)/viewportHeight`), which auto-scales pan speed with zoom. Zoom-to-cursor math runs in target space (assumes camera is at target); the damp reconciles.
+**Camera rig (Scene.jsx).** One `CameraRig`, modes: scripted intro dolly → free camera → scripted enter/exit flights. Mode switches: `free` ref null→object at dolly handoff; `flight` ref owns the camera outright while set. Iron rule: **input handlers and effects never move the camera or mutate `free.current`** — handlers bank pixel deltas / effects record intent into command refs (`diveCmd`); `useFrame` drains and mutates. Follow damps a stored *base*; camera = base + drift (drift added after damp; held during hover/dive via `hoverHoldRef`). Hover detection subtracts the published drift offset (`driftOffsetRef`) so camera wander can't flap hover (that feedback loop shipped once — see gotchas). Flights: easeInOutCubic, veil opacity = sin(πt)^3 written per-frame to a DOM ref, world swaps at t=0.5 behind the flash (`onDiveMidpoint` → App's `inWorld`), bounds swap at t=1 (constellation bounds ↔ node-local INTERIOR_CAM box). Zoom grinding the floor near a star auto-enters; zooming past the interior ceiling exits.
 
-**Nodes (ConstellationNodes.jsx).** Fully data-driven: `NODES` (id, label, position, parent, size) and `EDGES` derived from `parent`. Stars are sprites sharing one canvas-painted radial-gradient texture. Birth: staggered per-node ignition (`BIRTH_STAGGER`), each edge starts `EDGE_LEAD` before its child star. Component mounts only when the dolly completes (`showNodes`), which is what starts its clock. Labels are drei `Html` with per-node CSS `animationDelay`.
+**Pipeline (App.jsx + server).** `runPipeline` on Enter: requirements → parallel {architecture, database, wireframes} (each gets requirements as context) → planning (gets requirements + components + screens). Per-node try/catch → `error` state (dim embryo). Server forces one tool per kind (`tool_choice` + `disable_parallel_tool_use`), schema = contract; response validation checks required keys; **unwrap heuristic** handles the observed model quirk of nesting the whole artifact under one stray key. Failure path logs stop_reason/model/tokens/keys + raw content.
 
-**Starfield (HyperspaceStars.jsx).** Streak length is velocity-driven: per-frame speed (Δz/Δt) is smoothed with `THREE.MathUtils.damp`, so streaks ramp and decay instead of snapping. The `warp` prop gates the *speed input* (not the output), so intro streaks decay naturally at handoff but free-camera motion reads as speed 0. Resting stars are constant-angular-size specks (`REST_STREAK_ANGULAR`). The old documented issues (invisible at rest, snap-to-zero) are fixed.
+**Nodes (ConstellationNodes.jsx).** Data-driven from constellationData. Ignition is state-driven: `nodeStates` prop → `birthAt[i]` stamped on ready (+EDGE_LEAD so edges draw first); waiting/building = dim embryo (+ orbiting blue arc when building); no backend running = everything defaults ready. Hover = screen-space distance test (no raycast), gated to born stars + `interactive` + `visible`; one singleton summary panel (state picks which node, hover weight drives opacity via ref — invalid states unrepresentable). Component stays mounted while hidden inside a node (group.visible) so births never replay.
+
+**Renderers (NodeInterior.jsx).** `buildFrames(nodeId, board)` maps artifact JSON → frames in SLOTS around the breathing central glow. Diagram auto-layout: BFS layering capped at 3 columns (deeper chains fold column-major, canvas grows taller — overlap impossible); labels wrap to 2 lines; edge labels staggered at t=0.34/0.5/0.66 with dark paint-order backing. Wireframes render as app skeletons (lists = avatar rows, forms = field slots, tabbar = icon dots) on a 12×18 grid inside device frames. Missing/weird data falls back to raw-JSON frames.
 
 ## Known gotchas — hard-won lessons
 
-1. **Linter purity rules.** No mutating/reading refs during render; cleanups must capture ref values into locals. R3F's mutate-in-`useFrame` pattern is correct but looks like a violation. House pattern (used by all three scene components): JSX returns an empty `<group ref>`, the scene graph is built imperatively in a mount `useEffect`, all mutable state lives in one `useRef` object, mutations happen only in `useEffect`/`useFrame`. Prop values needed inside `useFrame` are mirrored into refs via a `useEffect`.
-2. **CSS animations beat inline styles.** In the cascade, running/held animations (including `fill-mode: forwards` and infinite loops) outrank `style=""`. This silently blocked the prompt recede once already. Scene.jsx writes inline transform/opacity/filter to `.prompt-wrapper` — that's why `.phase-dissolving .prompt-wrapper` sets `animation: none`. Never add a CSS animation to an element whose style Scene.jsx drives per-frame.
-3. **Transparent root backgrounds leak white.** The page gradient's center stop is 94% transparent; on `html` that showed the browser's default **white** backdrop and produced a giant phantom "orb" that survived every DOM fix. `index.css` must keep `background-color: black` under the gradient. If a mystery glow appears, hide the canvas and check the DOM before blaming the scene.
-4. **One change at a time in HyperspaceStars.jsx.** A historical bundled fix (streak scaling + idle rotation) desynced streak direction from rendered position and had to be reverted. Isolated, single-purpose changes only; test each before combining.
-5. **Glow/ring centering uses negative margins, not transform** — their keyframes (breathe/ambient/spin) own the `transform` property and would overwrite a `translate(-50%, -50%)`.
+1. **Linter purity pattern.** Empty `<group ref>` in JSX; scene graph built in mount effect; all mutable state in one ref object; mutations only in useEffect/useFrame; props mirrored into refs for useFrame.
+2. **React Compiler freeze semantics** (three separate incidents): (a) mutating `free.current` fields inside a `useEffect` froze the ref for every other mutation site — effects must record intent into command refs, useFrame mutates; (b) functions passed as component props get frozen along with everything they capture — keep prop callbacks pure (setState only); (c) declare refs *before* any closure that captures them — a ref captured above its `useRef` line loses its mutation exemption and the error appears at some unrelated later line. The error always points at the victim, not the culprit.
+3. **CSS animations beat inline styles** (cascade). Never add a CSS animation to any element whose style is written per-frame (prompt wrapper, node labels, panel, veil). `fill-mode: forwards` and infinite loops both hold their properties forever.
+4. **Transparent root backgrounds leak the browser's white backdrop.** `index.css` must keep `background-color: black` under the gradient. The phantom "orb" was this.
+5. **blur + animation don't mix.** `backdrop-filter` on anything that animates = repaint jank; `will-change` on drei Html content = permanently soft text (composited at fractional pixels). Board frames use solid fills, no layer promotion.
+6. **One change at a time in HyperspaceStars.jsx.**
+7. **Glow/ring centering uses negative margins, not transform** (keyframes own transform).
+8. **Feedback loops:** if a "fix" makes A depend on B while B depends on A, you built an oscillator (hover↔drift shipped that way once). Break loops at the data source (hover tests against the drift-free base camera).
+9. **Debugging rule that kept paying:** print the actual payload before theorizing. Also: PowerShell's `Invoke-RestMethod` display collapses nested JSON (`@{...}`, `System.Object[]`) — pipe to `ConvertTo-Json -Depth 10`; that's formatting, not missing data.
+10. **Tooling quirks:** OneDrive serves stale/truncated file copies to non-editor readers right after edits (Claude's sandbox hit this; syntax-check before trusting a copy). Vite Fast Refresh requires component-only exports (shared data lives in constellationData.js). node servers need manual restart — no hot reload.
+11. **Merge conflicts:** accept-both is only for independent additions; if one side references identifiers that no longer exist at the top of the file, it's the fossil.
 
-## Tuning knobs (where the feel lives)
+## Tuning knobs
 
-- `Scene.jsx` → `DOLLY` (warp duration/ease), `FREE_CAM` (damp, zoom step/limits, pan bounds, drift amp/freqs/idle delay).
-- `ConstellationNodes.jsx` → `NODES` positions/sizes, `BIRTH_STAGGER`, `BIRTH_DURATION`, `EDGE_LEAD`, `EDGE_OPACITY`, `CORE_SIZE`, breathing amplitudes in `useFrame`.
-- `HyperspaceStars.jsx` → `STAR_COUNT` (1400), `MAX_STREAK`, `STREAK_SCALE`, `SPEED_SMOOTHING`, `REST_STREAK_ANGULAR`.
-- `App.jsx` → `DISSOLVE_DURATION` (matches the 0.5s CSS fade), audio volumes/fades.
+- `Scene.jsx` → `DOLLY` (intro), `FLIGHT` (duration 1.7 / standoff 95 / veil exponent in useFrame), `FREE_CAM` (damp, zoom, bounds, drift), `INTERIOR_CAM` (board camera box), `AUTO_ENTER_RADIUS`.
+- `ConstellationNodes.jsx` → `BIRTH_DURATION`, `EDGE_LEAD/OPACITY`, `CORE_SIZE`, hover consts, `ARC_*` (building arc), `SEED_*` (embryos).
+- `NodeInterior.jsx` → `SLOTS`, `FRAME_DISTANCE_FACTOR` (250), per-frame widths in `buildFrames`.
+- `server/schemas.js` → all content quality/caps/layout rules (prompt tuning happens here); `server/index.js` → `max_tokens` (8000), mock latency.
+- `App.jsx` → `AMBIENT_VOLUME` (0.16), `DISSOLVE_DURATION`; tick volume in ConstellationNodes mount (0.3-ish).
 
 ## Conventions
 
-- Respect `prefers-reduced-motion` in any new CSS animation *and* any new JS-driven motion (see drift weight and the reduced-motion media check in Scene.jsx).
-- Keep the visual language restrained — one signature element per screen.
-- The user works by pasting reviewed snippets: propose remove/add blocks and explain what/why rather than silently rewriting files, unless asked to edit directly.
-- Verify visual changes by running the dev server and looking (the user often has it on localhost:5173). Note: browser rendering suspends when the Chrome window is occluded — screenshots of a hidden window show stale frames.
+- Respect `prefers-reduced-motion` in CSS and JS-driven motion.
+- The user works by pasting reviewed snippets for *their* files; Claude edits server/, NodeInterior, and docs directly. When giving snippets, name the exact function/component a prop list belongs to (Scene vs CameraRig both exist in Scene.jsx).
+- Verify visually via the dev server; browser rendering suspends when the Chrome window is occluded — screenshots of hidden windows are stale frames.
+- Restart `npm run server` after any server/ edit.
