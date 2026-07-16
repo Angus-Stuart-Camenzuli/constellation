@@ -300,7 +300,9 @@ export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef
 
     data.edges.forEach((line, i) => {
       const [from, to] = EDGES[i]
-      const nodeStart = (i + 1) * BIRTH_STAGGER
+      // each edge is timed to its CHILD's ignition — multi-parent safe:
+      // planning's three converging edges all draw ahead of its single birth
+      const nodeStart = to * BIRTH_STAGGER
       const p = THREE.MathUtils.clamp(
         (t - (nodeStart - EDGE_LEAD)) / BIRTH_DURATION, 0, 1
       )
