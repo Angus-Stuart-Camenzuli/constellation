@@ -54,7 +54,7 @@ const FREE_CAM = {
   zoomStep: 1.1, // zoom multiplier per 100px of wheel delta
   minZ: 80,      // closest approach to the node plane
   maxZ: 320,     // far enough to see everything, not the starfield's edge
-  boundsX: [-260, 205], // pan limits: node extents plus breathing room,
+  boundsX: [-260, 300], // pan limits: node extents plus breathing room
   boundsY: [-175, 155], // so nobody strands themselves in empty void
   driftAmp: 3,       // world units of idle wander — a whisper, not a wobble
   driftFreqX: 0.21,  // rad/s; the two frequencies are deliberately unrelated,

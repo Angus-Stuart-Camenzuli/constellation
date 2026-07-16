@@ -3,27 +3,28 @@
 // Scene, and ConstellationNodes all read the same source of truth.
 
 export const NODES = [
-  { id: 'origin', label: 'YOUR PROMPT', position: [-190, -95, 0], parent: null, size: 0.75,
+  { id: 'origin', label: 'YOUR PROMPT', position: [-190, -95, 0], parents: [], size: 0.75,
     blurb: 'The idea this constellation grew from.', enterable: false },
-  { id: 'requirements', label: 'REQUIREMENTS', position: [-60, -10, 0], parent: 'origin', size: 1.2,
+  { id: 'requirements', label: 'REQUIREMENTS', position: [-60, -10, 0], parents: ['origin'], size: 1.2,
     blurb: 'User stories, scope and acceptance criteria.' },
-  { id: 'architecture', label: 'ARCHITECTURE', position: [95, 85, 10], parent: 'requirements', size: 0.95,
+  { id: 'architecture', label: 'ARCHITECTURE', position: [95, 85, 10], parents: ['requirements'], size: 0.95,
     blurb: 'System design, components and data flow.' },
-  { id: 'database', label: 'DATABASE', position: [135, -5, -15], parent: 'requirements', size: 0.95,
-    blurb: 'Schema, entities and relationships.' },
-  { id: 'wireframes', label: 'WIREFRAMES', position: [75, -105, 8], parent: 'requirements', size: 0.95,
+  { id: 'database', label: 'DATABASE', position: [135, -5, -15], parents: ['requirements'], size: 0.95,
+    blurb: 'ERD, data dictionary and DDL.' },
+  { id: 'wireframes', label: 'WIREFRAMES', position: [75, -105, 8], parents: ['requirements'], size: 0.95,
     blurb: 'Screen layouts and user flows.' },
-  { id: 'planning', label: 'PLANNING', position: [40, 120, -5], parent: 'requirements', size: 0.95,
-    blurb: 'Timeline, milestones and effort planning.' },
+  { id: 'planning', label: 'PLANNING', position: [245, -30, -8],
+    parents: ['architecture', 'database', 'wireframes'], size: 0.95,
+    blurb: 'Timeline, milestones and risks.' },
 ]
 
-// edge list derived from each node's parent — [fromIndex, toIndex]
 const INDEX_BY_ID = Object.fromEntries(NODES.map((n, i) => [n.id, i]))
 
-export const EDGES = NODES.filter((n) => n.parent).map((n) => [
-  INDEX_BY_ID[n.parent],
-  INDEX_BY_ID[n.id],
-])
+// [fromIndex, toIndex] — one edge per parent, so convergence nodes
+// (planning) get multiple inbound edges
+export const EDGES = NODES.flatMap((n, childIdx) =>
+  (n.parents ?? []).map((p) => [INDEX_BY_ID[p], childIdx])
+)
 
 // Placeholder board contents per enterable node — the seam where real
 // AI-generated artifacts plug in later. pos is world units from node center.
