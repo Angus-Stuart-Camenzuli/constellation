@@ -401,6 +401,7 @@ export default function Scene({
   onDiveMidpoint,
   inWorld,
   onExitNode,
+  promptText,
 }) {
   // shared flag: ConstellationNodes writes "a node is hovered", CameraRig
   // reads it to hold the idle drift — reading deserves a still camera
@@ -424,6 +425,7 @@ export default function Scene({
           onEnterNode={onEnterNode}
           interactive={!diveNodeId}
           visible={!inWorld}
+          promptText={promptText}
         />
       )}
 

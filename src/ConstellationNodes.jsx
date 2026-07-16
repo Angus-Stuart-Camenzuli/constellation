@@ -26,7 +26,7 @@ const proj = new THREE.Vector3()
 
 const easeOutCubic = (t) => 1 - Math.pow(1 - t, 3)
 
-export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef, onEnterNode, interactive = true, visible = true }) {
+export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef, onEnterNode, interactive = true, visible = true, promptText }) {
   // same house pattern as HyperspaceStars: JSX renders an empty group,
   // the real scene graph is built imperatively on mount and mutated
   // only inside useEffect/useFrame (keeps the purity linter happy)
@@ -187,6 +187,11 @@ export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef
     }
   }, [])
 
+  // the origin star wears the user's own words. Long prompts get truncated
+  // on the label (spaced-caps at full length would span the screen); the
+  // hover panel shows the full text
+  const promptLabel = promptText && promptText.length > 26 ? promptText.slice(0, 24).trimEnd() + '…' : promptText
+
   useFrame((state, delta) => {
     const data = dataRef.current
     if (!data.sprites.length) return
@@ -324,7 +329,7 @@ export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef
             className="node-label"
             style={{ animationDelay: `${i * BIRTH_STAGGER + 0.5}s` }}
           >
-            {node.label}
+            {node.id === 'origin' && promptLabel ? promptLabel : node.label}
           </div>
         </Html>
       ))}
@@ -339,7 +344,11 @@ export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef
         >
           <div className="node-summary" ref={panelRef}>
             <div className="node-summary-title">{NODES[panelNode].label}</div>
-            <div className="node-summary-blurb">{NODES[panelNode].blurb}</div>
+            <div className="node-summary-blurb">
+              {NODES[panelNode].id === 'origin' && promptText
+                ? `“${promptText}”`
+                : NODES[panelNode].blurb}
+            </div>
             {NODES[panelNode].enterable !== false && (
               <div className="node-summary-hint">Click to enter</div>
             )}

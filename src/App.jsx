@@ -172,6 +172,7 @@ function App() {
         onDiveMidpoint={handleDiveMidpoint}
         inWorld={inWorld}
         onExitNode={leaveNode}
+        promptText={value.trim()}
       />
     {!promptGone && (
         <div className="prompt-wrapper" ref={promptWrapperRef}>
