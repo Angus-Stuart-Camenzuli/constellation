@@ -358,12 +358,6 @@ export default function ConstellationNodes({ muted, hoverHoldRef, driftOffsetRef
       const p = bAt === null
         ? 0
         : THREE.MathUtils.clamp((time - (bAt - EDGE_LEAD)) / BIRTH_DURATION, 0, 1)
-      // each edge is timed to its CHILD's ignition — multi-parent safe:
-      // planning's three converging edges all draw ahead of its single birth
-      const nodeStart = to * BIRTH_STAGGER
-      const p = THREE.MathUtils.clamp(
-        (t - (nodeStart - EDGE_LEAD)) / BIRTH_DURATION, 0, 1
-      )
       // edges touching the hovered node lift — relationship preview
       const w = Math.max(data.hoverW[from], data.hoverW[to])
       line.material.opacity =
