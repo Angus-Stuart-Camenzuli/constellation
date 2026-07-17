@@ -35,6 +35,17 @@ After you clone the Repo:
     ANTHROPIC_API_KEY=sk-ant-...
     ```
 
+# Live Demo
+
+https://constellation-rx2m.onrender.com
+
+Username: judge
+Password: hoobit2026
+
+*The application may take up to one minute to wake on first load because it is hosted on a free-tier service.*
+
+Also the API key will only survivie for 30 days. 
+
 # Tech Stack
 
 ## Frontend
