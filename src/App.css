@@ -13,6 +13,12 @@
 
 /* ---------- 3D scene canvas ---------- */
 
+/* spatial UI: native text selection only fights pan/drag gestures.
+   Copying is served by explicit COPY buttons on text frames instead. */
+.container {
+  user-select: none;
+}
+
 .scene-canvas {
   position: absolute !important;
   inset: 0;

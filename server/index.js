@@ -29,6 +29,33 @@ if (!MOCK && !process.env.ANTHROPIC_API_KEY) {
 const app = express()
 app.use(express.json())
 
+// ---- demo gate (deployments only) ----
+// Set DEMO_USER + DEMO_PASS in the host's env and the whole site (app + api)
+// asks for credentials via the browser's native prompt — no login page needed.
+// Unset locally = no gate. Credentials go in the Devpost submission.
+const { DEMO_USER, DEMO_PASS } = process.env
+if (DEMO_USER && DEMO_PASS) {
+  app.use((req, res, next) => {
+    const auth = req.headers.authorization ?? ''
+    const decoded = Buffer.from(auth.split(' ')[1] ?? '', 'base64').toString()
+    const idx = decoded.indexOf(':')
+    const user = decoded.slice(0, idx)
+    const pass = decoded.slice(idx + 1)
+    if (idx > 0 && user === DEMO_USER && pass === DEMO_PASS) return next()
+    res.set('WWW-Authenticate', 'Basic realm="constellation"')
+    res.status(401).send('Credentials are in the Devpost submission.')
+  })
+}
+
+// ---- static serving (deployments only) ----
+// If a Vite build exists (npm run build), serve it — one service runs the
+// whole product and /api is same-origin, so the dev proxy isn't needed.
+const distDir = path.join(__dirname, '..', 'dist')
+const hasBuild = fs.existsSync(path.join(distDir, 'index.html'))
+if (hasBuild) {
+  app.use(express.static(distDir))
+}
+
 const anthropic = MOCK ? null : new Anthropic()
 
 const fixture = (kind) =>
@@ -142,6 +169,15 @@ app.post('/api/generate', async (req, res) => {
     }
   }
 })
+
+// SPA fallback: any non-API GET that fell through gets the app.
+// (Express 5 removed the '*' route pattern — a final middleware is the way.)
+if (hasBuild) {
+  app.use((req, res, next) => {
+    if (req.method !== 'GET' || req.path.startsWith('/api')) return next()
+    res.sendFile(path.join(distDir, 'index.html'))
+  })
+}
 
 app.listen(PORT, () => {
   console.log(

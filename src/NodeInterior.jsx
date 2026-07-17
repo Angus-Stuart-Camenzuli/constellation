@@ -21,6 +21,62 @@ const FRAME_DISTANCE_FACTOR = 250
 const WHITE = (a) => `rgba(255, 255, 255, ${a})`
 const BLUE = (a) => `rgba(150, 190, 255, ${a})`
 
+// ---------- drag-to-arrange ----------
+// Offsets live at module level keyed by node+frame: they survive leaving and
+// re-entering a node, and reset on reload (fresh boards per run anyway).
+// Drag follows the promptRef pattern — deltas written straight to the DOM,
+// zero React re-renders mid-drag. The translate lives on a WRAPPER div, not
+// .board-frame itself, because the entrance animation's forwards-fill owns
+// that element's transform (gotcha #3: CSS animations beat inline styles).
+const boardOffsets = new Map()
+const offsetKey = (nodeId, i) => `${nodeId}:${i}`
+
+function copyFrameText(ev, frame) {
+  const btn = ev.currentTarget
+  const body = btn.closest('.board-frame')?.querySelector('.board-frame-body')
+  const text = frame.text ?? body?.innerText ?? ''
+  navigator.clipboard
+    ?.writeText(text)
+    .then(() => {
+      btn.textContent = 'COPIED'
+      setTimeout(() => {
+        btn.textContent = 'COPY'
+      }, 1200)
+    })
+    .catch(() => {})
+}
+
+function startFrameDrag(e, key) {
+  if (e.target.closest('button')) return // the copy button owns its clicks
+  e.preventDefault()
+  const wrap = e.currentTarget
+  const start = boardOffsets.get(key) ?? { x: 0, y: 0 }
+  const fromX = e.clientX
+  const fromY = e.clientY
+  wrap.style.cursor = 'grabbing'
+
+  const onMove = (ev) => {
+    // screen px → this element's local px. drei scales Html containers by
+    // distanceFactor/depth; measuring the live ratio beats knowing internals
+    const scale = wrap.getBoundingClientRect().width / wrap.offsetWidth || 1
+    const x = start.x + (ev.clientX - fromX) / scale
+    const y = start.y + (ev.clientY - fromY) / scale
+    boardOffsets.set(key, { x, y })
+    wrap.style.transform = `translate(${x}px, ${y}px) scale(1.02)` // slight lift while held
+  }
+  const onUp = () => {
+    window.removeEventListener('pointermove', onMove)
+    window.removeEventListener('pointerup', onUp)
+    window.removeEventListener('pointercancel', onUp)
+    const off = boardOffsets.get(key) ?? { x: 0, y: 0 }
+    wrap.style.transform = `translate(${off.x}px, ${off.y}px)` // settle
+    wrap.style.cursor = 'grab'
+  }
+  window.addEventListener('pointermove', onMove)
+  window.addEventListener('pointerup', onUp)
+  window.addEventListener('pointercancel', onUp)
+}
+
 // ---------- tiny shared pieces ----------
 
 const sectionLabel = {
@@ -618,11 +674,11 @@ function buildFrames(nodeId, board) {
   switch (nodeId) {
     case 'requirements':
       return [
-        { title: 'SUMMARY', w: 220, el: <div style={{ ...bodyText, color: WHITE(0.75) }}>{board.summary}</div> },
-        { title: 'USER STORIES', w: 290, el: <StoriesFrame stories={board.stories} /> },
+        { title: 'SUMMARY', w: 220, copy: true, el: <div style={{ ...bodyText, color: WHITE(0.75) }}>{board.summary}</div> },
+        { title: 'USER STORIES', w: 290, copy: true, el: <StoriesFrame stories={board.stories} /> },
         { title: 'USE CASES', w: 330, el: <DiagramFrame graph={toUseCaseGraph(board.useCases)} /> },
-        { title: 'SCOPE', w: 220, el: <ScopeFrame scope={board.scope} /> },
-        { title: 'SCREENS', w: 250, el: <ScreensFrame screens={board.screens} /> },
+        { title: 'SCOPE', w: 220, copy: true, el: <ScopeFrame scope={board.scope} /> },
+        { title: 'SCREENS', w: 250, copy: true, el: <ScreensFrame screens={board.screens} /> },
       ]
     case 'architecture':
       return [
@@ -632,9 +688,10 @@ function buildFrames(nodeId, board) {
       ]
     case 'database':
       return [
-        { title: 'ERD — ENTITIES', w: 330, el: <EntitiesFrame entities={board.entities} /> },
-        { title: 'RELATIONS', w: 250, el: <RelationsFrame relations={board.relations} /> },
-        { title: 'DDL', w: 300, el: <CodeFrame code={board.ddl} /> },
+        { title: 'ERD — ENTITIES', w: 330, copy: true, el: <EntitiesFrame entities={board.entities} /> },
+        { title: 'RELATIONS', w: 250, copy: true, el: <RelationsFrame relations={board.relations} /> },
+        // text: full SQL verbatim — the preview is clipped, the copy isn't
+        { title: 'DDL', w: 300, copy: true, text: board.ddl, el: <CodeFrame code={board.ddl} /> },
       ]
     case 'wireframes':
       return (board.screens ?? []).map((s) => ({
@@ -648,9 +705,10 @@ function buildFrames(nodeId, board) {
         {
           title: 'MILESTONES',
           w: 230,
+          copy: true,
           el: <List items={(board.milestones ?? []).map((m) => `wk ${m.week} — ${m.name}`)} />,
         },
-        { title: 'RISKS', w: 280, el: <RisksFrame risks={board.risks} /> },
+        { title: 'RISKS', w: 280, copy: true, el: <RisksFrame risks={board.risks} /> },
       ]
     default:
       return Object.entries(board)
@@ -659,6 +717,7 @@ function buildFrames(nodeId, board) {
         .map(([key, value]) => ({
           title: key.toUpperCase(),
           w: 260,
+          copy: true,
           el: <CodeFrame code={typeof value === 'string' ? value : JSON.stringify(value, null, 1)} />,
         }))
   }
@@ -680,23 +739,62 @@ export default function NodeInterior({ nodeId, board }) {
       </Html>
       {frames.map((frame, i) => {
         const pos = SLOTS[i % SLOTS.length]
+        const key = offsetKey(nodeId, i)
+        const off = boardOffsets.get(key) ?? { x: 0, y: 0 }
         return (
           <Html
             key={frame.title + i}
             position={[nx + pos[0], ny + pos[1], nz]}
             center
             distanceFactor={FRAME_DISTANCE_FACTOR}
-            style={{ pointerEvents: 'none' }}
+            style={{ pointerEvents: 'auto' }}
           >
             <div
-              className="board-frame"
-              style={{ width: frame.w ?? 230, animationDelay: `${0.15 + i * 0.18}s` }}
+              className="frame-drag"
+              style={{
+                transform: `translate(${off.x}px, ${off.y}px)`,
+                cursor: 'grab',
+                touchAction: 'none',
+              }}
+              onPointerDown={(e) => startFrameDrag(e, key)}
             >
-              <div className="board-frame-title">{frame.title}</div>
-              {frame.el ??
-                Array.from({ length: frame.lines ?? 3 }).map((_, j) => (
-                  <div key={j} className="board-frame-line" style={{ width: `${88 - j * 14}%` }} />
-                ))}
+              <div
+                className="board-frame"
+                style={{ width: frame.w ?? 230, animationDelay: `${0.15 + i * 0.18}s` }}
+              >
+                <div
+                  className="board-frame-title"
+                  style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}
+                >
+                  <span>{frame.title}</span>
+                  {frame.copy && (
+                    <button
+                      type="button"
+                      style={{
+                        background: 'none',
+                        border: `1px solid ${WHITE(0.18)}`,
+                        borderRadius: 4,
+                        color: WHITE(0.45),
+                        fontSize: 8,
+                        letterSpacing: 1.5,
+                        padding: '1px 6px',
+                        cursor: 'pointer',
+                        fontFamily: 'inherit',
+                      }}
+                      onPointerDown={(ev) => ev.stopPropagation()}
+                      onClick={(ev) => copyFrameText(ev, frame)}
+                    >
+                      COPY
+                    </button>
+                  )}
+                </div>
+                <div className="board-frame-body">
+                  {frame.el ??
+                    Array.from({ length: frame.lines ?? 3 }).map((_, j) => (
+                      <div key={j} className="board-frame-line" style={{ width: `${88 - j * 14}%` }} />
+                    ))}
+                </div>
+              </div>
             </div>
           </Html>
         )
